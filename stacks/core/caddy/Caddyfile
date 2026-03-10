@@ -1,0 +1,116 @@
+# Universe 647 — Caddy Reverse Proxy Configuration
+# All services behind Authelia SSO + CrowdSec IP blocking
+
+{
+	# Disable admin API for security (port 2019)
+	admin off
+
+	# Cloudflare DNS challenge for automatic HTTPS certificates
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+
+	# CrowdSec bouncer — blocks malicious IPs before they reach any service
+	crowdsec {
+		api_url http://crowdsec:8080
+		api_key {env.CROWDSEC_API_KEY}
+	}
+
+	# Write access logs in JSON format for CrowdSec to parse
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 5
+		}
+		format json
+	}
+}
+
+# Authelia forward_auth snippet — reusable across all protected services
+(authelia) {
+	forward_auth authelia:9091 {
+		uri /api/authz/forward-auth?authelia_url=https://auth.{env.DOMAIN}
+		copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+	}
+}
+
+# ==============================================================================
+# Phase 2: Core Services
+# ==============================================================================
+
+# Authelia SSO portal (not behind itself)
+auth.{$DOMAIN} {
+	reverse_proxy authelia:9091
+}
+
+# Homepage dashboard
+{$DOMAIN} {
+	import authelia
+	reverse_proxy homepage:3000
+}
+
+# Uptime Kuma monitoring
+status.{$DOMAIN} {
+	import authelia
+	reverse_proxy uptime-kuma:3001
+}
+
+# AdGuard Home DNS admin
+dns.{$DOMAIN} {
+	import authelia
+	reverse_proxy adguard:3000
+}
+
+# ==============================================================================
+# Phase 3: Data Layer — uncomment when stacks/data is deployed
+# ==============================================================================
+
+# monica.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy monica:8080
+# }
+
+# dav.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy baikal:80
+# }
+
+# tasks.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy vikunja:3456
+# }
+
+# ntfy.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy ntfy:80
+# }
+
+# n8n.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy n8n:5678
+# }
+
+# ==============================================================================
+# Phase 4: Sophon — uncomment when stacks/sophon is deployed
+# ==============================================================================
+
+# chat.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy open-webui:8080
+# }
+
+# ==============================================================================
+# Phase 5: Storage — uncomment when stacks/storage is deployed
+# ==============================================================================
+
+# files.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy nextcloud:80
+# }
+
+# ==============================================================================
+# Phase 7: Smart Home — uncomment when stacks/smarthome is deployed
+# ==============================================================================
+
+# ha.{$DOMAIN} {
+# 	import authelia
+# 	reverse_proxy home-assistant:8123
+# }

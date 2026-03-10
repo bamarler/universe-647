@@ -1,0 +1,306 @@
+# Universe 647 — Phase 2: Core Infrastructure
+# 10 containers + 8 networks (shared across all stacks)
+
+services:
+
+  # ==========================================================================
+  # Caddy — Reverse proxy with automatic HTTPS
+  # Routes *.home.yourdomain.com to backends via Authelia forward_auth
+  # CrowdSec bouncer blocks malicious IPs at the edge
+  # ==========================================================================
+  caddy:
+    image: serfriz/caddy-cloudflare-crowdsec:2.11.0
+    container_name: caddy
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "127.0.0.1:443:443"
+      - "127.0.0.1:80:80"
+    environment:
+      DOMAIN: ${DOMAIN}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      CROWDSEC_API_KEY: ${CROWDSEC_API_KEY}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - proxy_net
+      - auth_net
+      - app_net
+      - ai_net
+      - monitoring_net  # Required: bouncer plugin calls CrowdSec LAPI
+    mem_limit: 64m
+    cpus: "1.0"
+    pids_limit: 128
+
+  # ==========================================================================
+  # Tailscale — WireGuard mesh VPN
+  # Only way into the network. Device Approval + Tailnet Lock required.
+  # ==========================================================================
+  tailscale:
+    image: tailscale/tailscale:v1.82.5
+    container_name: tailscale
+    restart: unless-stopped
+    network_mode: host
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_HOSTNAME: ${TS_HOSTNAME}
+      TS_EXTRA_ARGS: --advertise-tags=tag:server
+    volumes:
+      - /srv/u647/tailscale:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    mem_limit: 64m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
+  # PostgreSQL — Shared relational database
+  # Used by Authelia, Open WebUI, n8n, Vikunja, Nextcloud
+  # ==========================================================================
+  postgres:
+    image: postgres:16.8
+    container_name: postgres
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    shm_size: 128m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /mnt/data/postgres:/var/lib/postgresql/data
+    networks:
+      - db_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    cpus: "1.0"
+    pids_limit: 128
+
+  # ==========================================================================
+  # Homepage — Dashboard with live service widgets
+  # Connects to Docker Socket Proxy for container status
+  # ==========================================================================
+  homepage:
+    image: ghcr.io/gethomepage/homepage:v1.2.0
+    container_name: homepage
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./homepage:/app/config:ro
+    networks:
+      - app_net
+      - monitoring_net
+    mem_limit: 64m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
+  # Authelia — SSO + mandatory WebAuthn 2FA
+  # Every request passes through here before reaching any backend
+  # ==========================================================================
+  authelia:
+    image: authelia/authelia:4.39.4
+    container_name: authelia
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET}
+      AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
+      AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+      AUTHELIA_STORAGE_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTHELIA_STORAGE_POSTGRES_HOST: postgres
+      AUTHELIA_STORAGE_POSTGRES_PORT: "5432"
+      AUTHELIA_STORAGE_POSTGRES_DATABASE: authelia
+      AUTHELIA_STORAGE_POSTGRES_USERNAME: ${POSTGRES_USER}
+    volumes:
+      - ./authelia:/config:ro
+    networks:
+      - auth_net
+      - db_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 128m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
+  # Uptime Kuma — Service monitoring
+  # Pings all services, alerts via Ntfy (Phase 3) when anything goes down
+  # Connects to Docker Socket Proxy for container status
+  # ==========================================================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    volumes:
+      - /srv/u647/uptime-kuma:/app/data
+    networks:
+      - monitoring_net
+    mem_limit: 128m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # ==========================================================================
+  # AdGuard Home — Network-wide DNS ad blocking
+  # Port 53 must be LAN-reachable; port 3000 for initial setup UI
+  # ==========================================================================
+  adguard:
+    image: adguard/adguardhome:v0.107.57
+    container_name: adguard
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add:
+      - NET_BIND_SERVICE  # Required for binding to port 53
+    ports:
+      - "0.0.0.0:53:53/tcp"
+      - "0.0.0.0:53:53/udp"
+      - "127.0.0.1:3000:3000"  # Setup UI — remove after initial config
+    volumes:
+      - /srv/u647/adguard/work:/opt/adguardhome/work
+      - /srv/u647/adguard/conf:/opt/adguardhome/conf
+    networks:
+      - monitoring_net
+    mem_limit: 128m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
+  # Docker Socket Proxy — Restricts Docker API access
+  # THE ONLY container that mounts /var/run/docker.sock
+  # All write operations blocked (POST=0)
+  # ==========================================================================
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.4.0
+    container_name: socket-proxy
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      CONTAINERS: "1"
+      IMAGES: "1"
+      INFO: "1"
+      NETWORKS: "1"
+      SERVICES: "1"
+      TASKS: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring_net
+    mem_limit: 16m
+    cpus: "0.25"
+    pids_limit: 32
+
+  # ==========================================================================
+  # CrowdSec — Intrusion detection + crowd-sourced IP reputation
+  # Reads Caddy access logs via shared volume (read-only)
+  # Caddy bouncer plugin queries LAPI on port 8080
+  # ==========================================================================
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.6.8
+    container_name: crowdsec
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      COLLECTIONS: "crowdsecurity/caddy crowdsecurity/linux"
+      BOUNCER_KEY_caddy: ${CROWDSEC_API_KEY}
+    volumes:
+      - caddy_logs:/var/log/caddy:ro
+      - crowdsec_data:/var/lib/crowdsec/data
+      - crowdsec_config:/etc/crowdsec
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+    networks:
+      - monitoring_net
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # ==========================================================================
+  # NUT — UPS monitoring via USB
+  # Host upsmon daemon connects on port 3493 for graceful shutdown
+  # ==========================================================================
+  nut:
+    image: instantlinux/nut-upsd:2.8.2-r0
+    container_name: nut
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    privileged: true  # Required for USB UPS access
+    ports:
+      - "127.0.0.1:3493:3493"
+    environment:
+      API_PASSWORD: ${NUT_API_PASSWORD}
+    volumes:
+      - ./nut/ups.conf:/etc/nut/local/ups.conf:ro
+      - ./nut/upsd.conf:/etc/nut/local/upsd.conf:ro
+      - ./nut/upsmon.conf:/etc/nut/local/upsmon.conf:ro
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    networks:
+      - monitoring_net
+    mem_limit: 32m
+    cpus: "0.25"
+    pids_limit: 32
+
+# ==============================================================================
+# Named volumes
+# ==============================================================================
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:       # Shared: Caddy writes, CrowdSec reads
+  crowdsec_data:
+  crowdsec_config:
+
+# ==============================================================================
+# Networks — ALL 8 defined here, referenced as external: true in other stacks
+# ==============================================================================
+networks:
+  proxy_net:
+    name: proxy_net
+  auth_net:
+    name: auth_net
+    internal: true
+  db_net:
+    name: db_net
+    internal: true
+  app_net:
+    name: app_net
+    internal: true
+  ai_net:
+    name: ai_net
+  automation_net:
+    name: automation_net
+  iot_net:
+    name: iot_net
+    internal: true
+  monitoring_net:
+    name: monitoring_net

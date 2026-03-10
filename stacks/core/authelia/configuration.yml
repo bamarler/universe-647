@@ -1,0 +1,93 @@
+---
+# Universe 647 — Authelia SSO + 2FA Configuration
+# Mandatory WebAuthn for all services. default_policy: two_factor.
+
+server:
+  address: tcp://0.0.0.0:9091/
+
+log:
+  level: info
+
+theme: dark
+
+# WebAuthn (FIDO2 security key) as primary 2FA method
+default_2fa_method: webauthn
+
+totp:
+  issuer: universe-647
+  period: 30
+  skew: 1
+
+webauthn:
+  disable: false
+  display_name: Universe 647
+  attestation_conveyance_preference: indirect
+  user_verification: preferred
+  timeout: 60s
+
+# File-based user backend — users defined in users_database.yml
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 3
+      key_length: 32
+      salt_length: 16
+      memory: 65536
+      parallelism: 4
+
+# All services require 2FA by default
+access_control:
+  default_policy: two_factor
+
+  rules:
+    # Authelia portal itself must be accessible without auth
+    - domain: auth.{{ env "DOMAIN" }}
+      policy: bypass
+
+    # Everything else requires password + security key
+    - domain: "*.{{ env "DOMAIN" }}"
+      policy: two_factor
+
+session:
+  cookies:
+    - domain: '{{ env "DOMAIN" }}'
+      authelia_url: 'https://auth.{{ env "DOMAIN" }}'
+      name: authelia_session
+      same_site: lax
+      expiration: 1h
+      inactivity: 10m
+      remember_me: 1M
+
+# Brute force protection
+regulation:
+  max_retries: 5
+  find_time: 2m
+  ban_time: 10m
+
+# PostgreSQL for session and TOTP storage
+# Connection details passed via environment variables:
+#   AUTHELIA_STORAGE_POSTGRES_HOST, AUTHELIA_STORAGE_POSTGRES_PORT,
+#   AUTHELIA_STORAGE_POSTGRES_DATABASE, AUTHELIA_STORAGE_POSTGRES_USERNAME,
+#   AUTHELIA_STORAGE_POSTGRES_PASSWORD, AUTHELIA_STORAGE_ENCRYPTION_KEY
+storage:
+  postgres:
+    address: tcp://postgres:5432
+    database: authelia
+    username: '{{ env "AUTHELIA_STORAGE_POSTGRES_USERNAME" }}'
+    password: '{{ env "AUTHELIA_STORAGE_POSTGRES_PASSWORD" }}'
+
+# Notification delivery — filesystem for initial setup
+# Switch to SMTP when email is configured
+notifier:
+  filesystem:
+    filename: /tmp/notifications.txt
+
+  # Uncomment when SMTP is ready:
+  # smtp:
+  #   address: smtp://smtp.gmail.com:587
+  #   username: your-email@gmail.com
+  #   password: app-specific-password
+  #   sender: "Universe 647 <your-email@gmail.com>"
+  #   subject: "[Universe 647] {title}"

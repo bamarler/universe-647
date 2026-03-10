@@ -1,0 +1,17 @@
+---
+# Universe 647 — Authelia User Database
+#
+# Generate password hash:
+#   docker run --rm authelia/authelia:4.39.4 \
+#     authelia crypto hash generate argon2 --password 'YOUR_PASSWORD'
+#
+# After Authelia is running, register WebAuthn devices at:
+#   https://auth.home.yourdomain.com
+
+users:
+  admin:
+    displayname: Admin
+    password: "$argon2id$v=19$m=65536,t=3,p=4$REPLACE_WITH_GENERATED_HASH"
+    email: admin@example.com
+    groups:
+      - admins

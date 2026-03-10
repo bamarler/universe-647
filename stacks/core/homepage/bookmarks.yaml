@@ -1,0 +1,18 @@
+---
+# Universe 647 — Homepage Dashboard Bookmarks
+
+- Admin:
+    - Tailscale Console:
+        - icon: tailscale.svg
+          href: https://login.tailscale.com/admin
+          description: Device management, ACLs, Tailnet Lock
+
+    - Cloudflare:
+        - icon: cloudflare.svg
+          href: https://dash.cloudflare.com
+          description: DNS, R2 backup storage
+
+    - GitHub:
+        - icon: github.svg
+          href: https://github.com
+          description: Repository

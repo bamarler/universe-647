@@ -1,0 +1,20 @@
+---
+# Universe 647 — CrowdSec Decision Profiles
+
+name: default_ip_remediation
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip"
+decisions:
+  - type: ban
+    duration: 4h
+on_success: break
+
+# Uncomment for aggressive bans on brute force and scanning
+# ---
+# name: aggressive_ban
+# filters:
+#   - Alert.GetScenario() in ["crowdsecurity/ssh-bf", "crowdsecurity/http-probing", "crowdsecurity/http-bad-user-agent"]
+# decisions:
+#   - type: ban
+#     duration: 24h
+# on_success: break

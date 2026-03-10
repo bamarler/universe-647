@@ -1,0 +1,8 @@
+---
+# Universe 647 — CrowdSec Log Acquisition
+# Caddy access logs shared via caddy_logs named volume
+
+filenames:
+  - /var/log/caddy/access.log
+labels:
+  type: caddy
