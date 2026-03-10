@@ -1,0 +1,26 @@
+# Decrypted secrets - NEVER commit
+.env
+*.env
+!*.env.example
+!*.env.enc
+
+# age private key
+keys.txt
+*.agekey
+
+# Runtime data
+/srv/
+/mnt/
+
+# Mosquitto generated passwords
+mosquitto/passwd
+
+# AI context docs (agent working memory, not project docs)
+agent-docs/
+
+# Editor
+.vscode/
+*.swp
+
+# OS
+.DS_Store

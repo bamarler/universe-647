@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "codebase-index": {
+      "type": "stdio",
+      "command": "mcp-codebase-index",
+      "args": [],
+      "env": {
+        "PROJECT_ROOT": "/home/bamarler/Github/universe-647"
+      }
+    }
+  }
+}

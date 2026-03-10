@@ -1,0 +1,10 @@
+creation_rules:
+  - path_regex: \.env\.enc$
+    encrypted_regex: "^(.*)$"
+    age:
+      - age1p95d2acwjtuaeam5p8m8rvkj3utgz2g5su70f8765zg8mhpgwups0wh5m8  # Replace with your public key
+
+  - path_regex: secrets\.enc\.yaml$
+    encrypted_regex: "^(password|token|key|secret|api).*"
+    age:
+      - age1p95d2acwjtuaeam5p8m8rvkj3utgz2g5su70f8765zg8mhpgwups0wh5m8
