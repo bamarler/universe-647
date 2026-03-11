@@ -1,0 +1,19 @@
+# Ntfy server configuration
+# Private, single-user deployment behind Tailscale + Authelia
+
+listen-http: :80
+base-url: https://ntfy.home.yourdomain.com
+
+# Message persistence
+cache-file: /var/lib/ntfy/cache.db
+cache-duration: 168h
+
+# Disable public features (Authelia handles auth)
+enable-signup: false
+enable-login: false
+enable-reservations: false
+
+# Generous limits for single user
+visitor-subscription-limit: 100
+visitor-request-limit-burst: 100
+visitor-request-limit-replenish: 60s

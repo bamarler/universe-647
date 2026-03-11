@@ -60,33 +60,33 @@ dns.{$DOMAIN} {
 }
 
 # ==============================================================================
-# Phase 3: Data Layer — uncomment when stacks/data is deployed
+# Phase 3: Data Layer
 # ==============================================================================
 
-# monica.{$DOMAIN} {
-# 	import authelia
-# 	reverse_proxy monica:8080
-# }
+monica.{$DOMAIN} {
+	import authelia
+	reverse_proxy monica:80
+}
 
-# dav.{$DOMAIN} {
-# 	import authelia
-# 	reverse_proxy baikal:80
-# }
+dav.{$DOMAIN} {
+	import authelia
+	reverse_proxy baikal:80
+}
 
-# tasks.{$DOMAIN} {
-# 	import authelia
-# 	reverse_proxy vikunja:3456
-# }
+tasks.{$DOMAIN} {
+	import authelia
+	reverse_proxy vikunja:3456
+}
 
-# ntfy.{$DOMAIN} {
-# 	import authelia
-# 	reverse_proxy ntfy:80
-# }
+ntfy.{$DOMAIN} {
+	import authelia
+	reverse_proxy ntfy:80
+}
 
-# n8n.{$DOMAIN} {
-# 	import authelia
-# 	reverse_proxy n8n:5678
-# }
+n8n.{$DOMAIN} {
+	import authelia
+	reverse_proxy n8n:5678
+}
 
 # ==============================================================================
 # Phase 4: Sophon — uncomment when stacks/sophon is deployed

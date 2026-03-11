@@ -1,0 +1,228 @@
+# Universe 647 — Phase 3: Personal Data Layer
+# 5 services + MariaDB sidecar (6 containers total)
+# Requires: core stack running (PostgreSQL, Caddy, Authelia, networks)
+
+services:
+
+  # ==========================================================================
+  # Monica CRM — Personal relationship manager
+  # Contacts, relationships, interactions, birthdays, gifts
+  # Uses its own MariaDB sidecar, NOT shared PostgreSQL
+  # ==========================================================================
+  monica:
+    image: monica:4-apache
+    container_name: monica
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    environment:
+      APP_KEY: ${MONICA_APP_KEY}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: https://monica.${DOMAIN}
+      DB_CONNECTION: mysql
+      DB_HOST: monica-db
+      DB_PORT: "3306"
+      DB_DATABASE: monica
+      DB_USERNAME: monica
+      DB_PASSWORD: ${MONICA_DB_PASSWORD}
+      MAIL_MAILER: smtp
+      MAIL_HOST: ${SMTP_HOST}
+      MAIL_PORT: ${SMTP_PORT}
+      MAIL_USERNAME: ${SMTP_USERNAME}
+      MAIL_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_ENCRYPTION: tls
+      MAIL_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
+      MAIL_FROM_NAME: Monica CRM
+    volumes:
+      - /mnt/data/monica:/var/www/html/storage
+    networks:
+      - app_net
+      - monica_net
+    depends_on:
+      monica-db:
+        condition: service_healthy
+    mem_limit: 400m
+    cpus: "1.0"
+    pids_limit: 128
+
+  # ==========================================================================
+  # MariaDB — Private database for Monica
+  # Isolated on monica_net, not shared with other services
+  # ==========================================================================
+  monica-db:
+    image: mariadb:11.8
+    container_name: monica-db
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MONICA_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: monica
+      MYSQL_USER: monica
+      MYSQL_PASSWORD: ${MONICA_DB_PASSWORD}
+    volumes:
+      - /mnt/data/monica-db:/var/lib/mysql
+    networks:
+      - monica_net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # ==========================================================================
+  # Baikal — Lightweight CalDAV/CardDAV server
+  # n8n syncs Monica contacts → Baikal → iOS native Contacts via CardDAV
+  # ==========================================================================
+  baikal:
+    image: ckulka/baikal:0.10.1-nginx
+    container_name: baikal
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+      - /var/cache/nginx
+    volumes:
+      - /srv/u647/baikal/config:/var/www/baikal/config
+      - /srv/u647/baikal/data:/var/www/baikal/Specific
+    networks:
+      - app_net
+    mem_limit: 64m
+    cpus: "0.25"
+    pids_limit: 64
+
+  # ==========================================================================
+  # n8n — Workflow automation
+  # SECURITY: Pinned to v1.121.3+ (CVE-2026-21858, CVSS 10.0 — unauth RCE)
+  # Reaches services via Caddy authenticated APIs, never direct container access
+  # automation_net allows outbound for Gmail, Calendar, Canvas APIs
+  # ==========================================================================
+  n8n:
+    image: n8nio/n8n:1.121.3
+    container_name: n8n
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      N8N_HOST: n8n.${DOMAIN}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      GENERIC_TIMEZONE: ${TZ}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_JWT_SECRET}
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+    volumes:
+      - /mnt/data/n8n:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    networks:
+      - automation_net
+      - db_net
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 256
+
+  # ==========================================================================
+  # Vikunja — Task manager with CalDAV
+  # REST API + CalDAV sync to iOS Reminders
+  # Single source of truth for all tasks
+  # ==========================================================================
+  vikunja:
+    image: vikunja/vikunja:0.24.6
+    container_name: vikunja
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: https://tasks.${DOMAIN}
+      VIKUNJA_SERVICE_TIMEZONE: ${TZ}
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+      VIKUNJA_SERVICE_ENABLECALDAV: "true"
+      VIKUNJA_DATABASE_TYPE: postgres
+      VIKUNJA_DATABASE_HOST: postgres
+      VIKUNJA_DATABASE_USER: ${POSTGRES_USER}
+      VIKUNJA_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      VIKUNJA_DATABASE_DATABASE: vikunja
+    volumes:
+      - /mnt/data/vikunja:/app/vikunja/files
+    networks:
+      - app_net
+      - db_net
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # ==========================================================================
+  # Ntfy — Push notification server
+  # Central hub: Uptime Kuma alerts, CrowdSec detections, urgent emails,
+  # morning briefings, birthday reminders, MCP confirmations
+  # ==========================================================================
+  ntfy:
+    image: binwiederhier/ntfy:v2.18.0
+    container_name: ntfy
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/ntfy
+    command:
+      - serve
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - /srv/u647/ntfy:/var/lib/ntfy
+      - ./ntfy/server.yml:/etc/ntfy/server.yml:ro
+    networks:
+      - app_net
+    mem_limit: 64m
+    cpus: "0.25"
+    pids_limit: 64
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  # External networks (defined in stacks/core/compose.yaml)
+  app_net:
+    external: true
+  db_net:
+    external: true
+  automation_net:
+    external: true
+  # Private network for Monica <-> MariaDB only
+  monica_net:
+    name: monica_net
+    internal: true
