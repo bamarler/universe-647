@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres@0.6.2",
+        "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/open_webui"
+      ]
+    },
+    "monica": {
+      "command": "node",
+      "args": ["/opt/monica-mcp/dist/index.js"],
+      "env": {
+        "MONICA_BASE_URL": "https://monica.${DOMAIN}",
+        "MONICA_API_TOKEN": "${MONICA_API_TOKEN}",
+        "MONICA_TOKEN_TYPE": "bearer"
+      }
+    },
+    "vikunja": {
+      "command": "npx",
+      "args": ["-y", "@0xk3vin/vikunja-mcp@1.1.1"],
+      "env": {
+        "VIKUNJA_URL": "https://tasks.${DOMAIN}",
+        "VIKUNJA_API_TOKEN": "${VIKUNJA_API_TOKEN}"
+      }
+    }
+  }
+}

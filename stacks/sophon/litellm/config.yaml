@@ -1,0 +1,35 @@
+# Universe 647 — LiteLLM Model Routing
+# Three-tier strategy: tool-caller (cheap), smart (quality), local (dormant)
+
+model_list:
+  # Tier 1: Tool Caller — Gemini 2.5 Flash
+  # Cheapest reliable function-calling model ($0.30/$2.50 per MTok)
+  # Used for all MCP tool-calling conversations
+  - model_name: tool-caller
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  # Tier 2: Smart — Claude Haiku 4.5
+  # Best reasoning-per-dollar ($1/$5 per MTok)
+  # Used for briefings, email classification, complex reasoning
+  - model_name: smart
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20250620
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Tier 3: Local — Ollama (DORMANT)
+  # Uncomment after 32GB RAM upgrade + Ollama re-enabled
+  # - model_name: local
+  #   litellm_params:
+  #     model: ollama/qwen3.5:14b
+  #     api_base: http://ollama:11434
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  num_retries: 2
+  request_timeout: 120
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

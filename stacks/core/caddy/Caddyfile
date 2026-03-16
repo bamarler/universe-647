@@ -89,13 +89,13 @@ n8n.{$DOMAIN} {
 }
 
 # ==============================================================================
-# Phase 4: Sophon — uncomment when stacks/sophon is deployed
+# Phase 4: Sophon
 # ==============================================================================
 
-# chat.{$DOMAIN} {
-# 	import authelia
-# 	reverse_proxy open-webui:8080
-# }
+chat.{$DOMAIN} {
+	import authelia
+	reverse_proxy open-webui:8080
+}
 
 # ==============================================================================
 # Phase 5: Storage — uncomment when stacks/storage is deployed

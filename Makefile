@@ -1,5 +1,5 @@
 # Universe 647 Makefile
-# Requires: docker, sops, age, restic, tailscale
+# Requires: docker, sops, age, restic, tailscale, bun
 
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
@@ -57,6 +57,7 @@ define check_tools_fn
 	@command -v sops >/dev/null 2>&1   || { printf "$(RED)✗ SOPS not installed$(NC)\n" >&2; exit 1; }
 	@command -v age >/dev/null 2>&1    || { printf "$(RED)✗ age not installed$(NC)\n" >&2; exit 1; }
 	@command -v restic >/dev/null 2>&1 || { printf "$(RED)✗ restic not installed$(NC)\n" >&2; exit 1; }
+	@command -v bun >/dev/null 2>&1    || { printf "$(RED)✗ bun not installed$(NC)\n" >&2; exit 1; }
 	@printf "$(GREEN)✓ All required tools installed$(NC)\n"
 endef
 
@@ -96,6 +97,7 @@ info: ## Display system and tool versions
 	@age --version 2>/dev/null     || printf "$(RED)age not found$(NC)\n"
 	@restic version 2>/dev/null    || printf "$(RED)restic not found$(NC)\n"
 	@tailscale version 2>/dev/null || printf "$(RED)Tailscale not found$(NC)\n"
+	@bun --version 2>/dev/null     || printf "$(RED)bun not found$(NC)\n"
 
 .PHONY: age-keygen
 age-keygen: ## Generate age keypair and install secret key
@@ -127,6 +129,28 @@ encrypt: ## Encrypt all .env files → .env.enc (run before git commit)
 
 ##@ Services
 
+.PHONY: build
+build: ## Build custom images (STACK=sophon to build mcpo only)
+ifdef STACK
+	@if [ -z "$(STACK_FILE)" ]; then \
+		printf "$(RED)✗ Unknown stack: $(STACK)$(NC)\n" >&2; \
+		exit 1; \
+	fi
+	@printf "$(YELLOW)Building $(STACK) stack images...$(NC)\n"
+	@docker compose -f $(STACK_FILE) build --pull
+	@printf "$(GREEN)✓ $(STACK) stack images built$(NC)\n"
+else
+	@printf "$(YELLOW)Building all custom images...$(NC)\n"
+	@for stack in $(ALL_STACKS); do \
+		if grep -q "^\s*build:" $$stack 2>/dev/null; then \
+			name=$$(basename $$(dirname $$stack)); \
+			printf "$(CYAN)  ↳ Building $$name...$(NC)\n"; \
+			docker compose -f $$stack build --pull; \
+		fi; \
+	done
+	@printf "$(GREEN)✓ All custom images built$(NC)\n"
+endif
+
 .PHONY: up
 up: ## Start stacks (all, or STACK=core|data|sophon|storage|voice|smarthome)
 	$(check_secrets)
@@ -137,6 +161,10 @@ ifdef STACK
 		exit 1; \
 	fi
 	@printf "$(YELLOW)Starting $(STACK) stack...$(NC)\n"
+	@if grep -q "^\s*build:" $(STACK_FILE) 2>/dev/null; then \
+		printf "$(CYAN)  ↳ Building custom images...$(NC)\n"; \
+		docker compose -f $(STACK_FILE) build --pull; \
+	fi
 	@if docker compose -f $(STACK_FILE) up -d; then \
 		printf "$(GREEN)✓ $(STACK) stack started$(NC)\n"; \
 	else \
@@ -147,6 +175,10 @@ else
 	@printf "$(YELLOW)Starting all stacks in dependency order...$(NC)\n"
 	@for stack in $(ALL_STACKS); do \
 		name=$$(basename $$(dirname $$stack)); \
+		if grep -q "^\s*build:" $$stack 2>/dev/null; then \
+			printf "$(CYAN)  ↳ Building $$name custom images...$(NC)\n"; \
+			docker compose -f $$stack build --pull; \
+		fi; \
 		printf "$(CYAN)  ↳ Starting $$name...$(NC)\n"; \
 		docker compose -f $$stack up -d || { \
 			printf "$(RED)✗ Failed to start $$name$(NC)\n" >&2; \
@@ -209,6 +241,25 @@ endif
 	@docker compose -f $(STACK_FILE) logs -f
 
 ##@ Database
+
+.PHONY: db-migrate
+db-migrate: ## Run pending database migrations
+	$(check_running)
+	@printf "$(YELLOW)Running database migrations...$(NC)\n"
+	@docker compose -f $(CORE) --profile migrate run --rm migrate
+	@printf "$(GREEN)✓ Migrations complete$(NC)\n"
+
+.PHONY: db-migrate-create
+db-migrate-create: ## Create a new migration pair (usage: make db-migrate-create NAME=add_foo)
+ifndef NAME
+	@printf "$(RED)✗ NAME is required$(NC)\n" >&2
+	@printf "$(YELLOW)  Usage: make db-migrate-create NAME=add_foo$(NC)\n" >&2
+	@exit 1
+endif
+	@printf "$(YELLOW)Creating migration: $(NAME)...$(NC)\n"
+	@docker run --rm -v ./stacks/core/postgres/migrations:/migrations \
+		migrate/migrate:v4.18.1 create -ext sql -dir /migrations -seq $(NAME)
+	@printf "$(GREEN)✓ Migration files created in stacks/core/postgres/migrations/$(NC)\n"
 
 .PHONY: db-dump
 db-dump: ## Dump PostgreSQL to /tmp/pg_dump_<date>.sql.gz

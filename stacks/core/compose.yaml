@@ -1,5 +1,5 @@
 # Universe 647 — Phase 2: Core Infrastructure
-# 10 containers + 8 networks (shared across all stacks)
+# 10 containers + migrate utility + 8 networks (shared across all stacks)
 
 services:
 
@@ -270,6 +270,29 @@ services:
     mem_limit: 32m
     cpus: "0.25"
     pids_limit: 32
+
+  # ==========================================================================
+  # golang-migrate — Database migration runner
+  # Only runs on demand via: make db-migrate
+  # Manages database creation and schema changes
+  # ==========================================================================
+  migrate:
+    image: migrate/migrate:v4.18.1
+    container_name: migrate
+    profiles: [migrate]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    networks:
+      - db_net
+    volumes:
+      - ./postgres/migrations:/migrations:ro
+    command: ["-path", "/migrations", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres?sslmode=disable", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 32m
+    cpus: "0.25"
 
 # ==============================================================================
 # Named volumes

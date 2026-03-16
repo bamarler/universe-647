@@ -101,7 +101,7 @@ universe-647/
 ├── stacks/
 │   ├── core/                   # Phase 2: Caddy, Tailscale, PostgreSQL, Authelia, etc.
 │   ├── data/                   # Phase 3: Monica, Baïkal, n8n, Vikunja, Ntfy
-│   ├── sophon/                 # Phase 4: Ollama, LiteLLM, Open WebUI, MCP Gateway
+│   ├── sophon/                 # Phase 4: Ollama (dormant), LiteLLM, Open WebUI, mcpo
 │   ├── storage/                # Phase 5: Nextcloud + Redis
 │   ├── voice/                  # Phase 6: Wyoming Whisper + Piper
 │   └── smarthome/              # Phase 7: Home Assistant, Mosquitto, Zigbee2MQTT
@@ -132,7 +132,7 @@ Three independent layers — compromising any single layer is insufficient for a
 
 1. **Tailscale + Tailnet Lock + Device Approval** — Services are invisible to the public internet. New devices require admin approval and cryptographic signing before any traffic flows.
 2. **Authelia + Mandatory WebAuthn** — Every request requires password + physical FIDO2 security key. Phishing-resistant by design.
-3. **Application-Level Authorization** — MCP Gateway enforces tool allowlists and human-in-the-loop gates for destructive actions. Docker containers run with dropped capabilities, read-only filesystems, and resource limits.
+3. **Application-Level Authorization** — Per-model MCP tool assignment in Open WebUI controls which tools each model can use. Docker containers run with dropped capabilities, read-only filesystems, and resource limits.
 
 CrowdSec provides intrusion detection at the reverse proxy layer. Network segmentation into 8 trust-tiered Docker networks prevents lateral movement between containers.
 

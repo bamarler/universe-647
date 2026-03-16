@@ -8,7 +8,7 @@ Reference for the architecture diagram. Every line in the diagram represents a c
 
 **Inbound (internet → server): BLOCKED.** The server has no open ports on the public internet. No port forwarding, no public IP binding. The only way in is through Tailscale's encrypted WireGuard tunnel, which requires Device Approval + Tailnet Lock. DNS records point to Tailscale IPs (100.x.x.x), which are unroutable from the public internet.
 
-**Outbound (server → internet): ALLOWED** on non-`internal` Docker networks. Containers make direct HTTPS requests through the host's normal internet connection (home router NAT). This is how LiteLLM calls Claude/OpenAI, n8n polls Gmail, CrowdSec syncs IP reputation, and restic uploads to Cloudflare R2. These requests do NOT route through Caddy or Tailscale — they go straight out via the host network.
+**Outbound (server → internet): ALLOWED** on non-`internal` Docker networks. Containers make direct HTTPS requests through the host's normal internet connection (home router NAT). This is how LiteLLM calls Gemini/Anthropic APIs, n8n polls Gmail, CrowdSec syncs IP reputation, and restic uploads to Cloudflare R2. These requests do NOT route through Caddy or Tailscale — they go straight out via the host network.
 
 **LAN (WiFi devices → server): MOSTLY BLOCKED.** Only three containers bind ports to the host: Caddy (`127.0.0.1:443` — localhost only, reachable via Tailscale but not LAN), AdGuard Home (`0.0.0.0:53` — must be LAN-reachable for DNS), and Tailscale (`network_mode: host`). All other containers have no published ports and are unreachable from the LAN even by port scanning.
 
@@ -53,24 +53,27 @@ Caddy routes authenticated requests to the right backend based on subdomain.
 
 ## AI / LLM Stack (`ai_net`)
 
-The AI pipeline: user talks to Open WebUI, which calls LiteLLM for model routing and MCP Gateway for tools.
+The AI pipeline: user talks to Open WebUI, which calls LiteLLM for model routing and mcpo for MCP tools.
 
 | From | To | Protocol | Data Flow |
 |------|----|----------|-----------|
 | **Caddy** | **Open WebUI** | HTTP (8080) | `chat.home.domain.com` → chat interface |
 | **Open WebUI** | **LiteLLM** | HTTP (4000) | LLM API requests (prompt → completion) |
-| **LiteLLM** | **Ollama** | HTTP (11434) | "local" model requests → 7B inference on CPU |
-| **LiteLLM** | Claude / OpenAI API | HTTPS (443) | "smart" model requests → cloud (direct outbound via host network) |
-| **Open WebUI** | **MCP Gateway** | HTTP/stdio | Tool call requests (e.g., "add a task", "who is John?") |
-| **MCP Gateway** | **Monica CRM** | HTTP (8080) | CRM queries: contacts, notes, relationships |
-| **MCP Gateway** | **Vikunja** | HTTP (3456) | Task CRUD: create, complete, query tasks |
-| **MCP Gateway** | **Ntfy** | HTTP (80) | Human-in-the-loop confirmations for destructive actions |
-| **MCP Gateway** | Google Calendar API | HTTPS (443) | Read-only schedule queries (direct outbound via host network) |
-| **MCP Gateway** | **PostgreSQL** | PostgreSQL (5432) | Direct database queries |
-| **MCP Gateway** | **Home Assistant** | HTTP (8123) | Smart home control: lights, sensors, automations |
-| **MCP Gateway** | **Nextcloud** (Astrolabe) | HTTP (80) | Semantic file search |
+| **LiteLLM** | Gemini API | HTTPS (443) | "tool-caller" requests → Gemini 2.5 Flash (direct outbound via host network) |
+| **LiteLLM** | Anthropic API | HTTPS (443) | "smart" requests → Claude Haiku 4.5 (direct outbound via host network) |
+| **Open WebUI** | **mcpo** | HTTP (8000) | Tool call requests via OpenAPI (e.g., "add a task", "who is John?") |
+| **mcpo** (child: monica-mcp) | **Caddy** → Monica | HTTPS | CRM queries via authenticated API (same pattern as n8n) |
+| **mcpo** (child: vikunja-mcp) | **Caddy** → Vikunja | HTTPS | Task CRUD via authenticated API |
+| **mcpo** (child: calendar-mcp) | Google Calendar API | HTTPS (443) | Read-only schedule queries (direct outbound via host network) |
+| **mcpo** (child: postgres-mcp) | **PostgreSQL** | PostgreSQL (5432) | Direct database queries (requires mcpo multi-homed on `db_net`) |
+| **Open WebUI** | **Home Assistant** MCP | HTTP (8123) | Smart home control via native Streamable HTTP MCP (Phase 7, no mcpo needed) |
+| **Open WebUI** | **Nextcloud** (Astrolabe) MCP | HTTP (80) | Semantic file search via MCP (Phase 5) |
 | **Open WebUI** | **Wyoming Whisper** | TCP (10300) | Audio → text (speech-to-text) |
 | **Open WebUI** | **Wyoming Piper** | TCP (10200) | Text → audio (text-to-speech) |
+
+Note: Ollama is dormant for MVP (`profiles: [local]`). When re-enabled after 32 GB upgrade, add: LiteLLM → Ollama HTTP (11434) for "local" model requests.
+
+Note: mcpo stays on `ai_net` only. Custom MCP servers for Monica and Vikunja reach those services through Caddy's authenticated API endpoints (same isolation pattern n8n uses on `automation_net`). The PostgreSQL MCP server is the exception — it needs direct database access, so mcpo must be multi-homed onto `db_net`.
 
 ---
 
@@ -165,16 +168,17 @@ These connections go directly from the container through the host's internet con
 
 | Container | Destination | Protocol | Data Flow |
 |-----------|------------|----------|-----------|
-| **LiteLLM** | Claude / OpenAI API | HTTPS (443) | "smart" model completions (sends prompts off-device) |
+| **LiteLLM** | Gemini API | HTTPS (443) | "tool-caller" completions via Gemini 2.5 Flash (sends prompts off-device) |
+| **LiteLLM** | Anthropic API | HTTPS (443) | "smart" completions via Claude Haiku 4.5 (sends prompts off-device) |
 | **n8n** | Gmail API | HTTPS (443) | Email polling + send |
 | **n8n** | Outlook API | HTTPS (443) | Email polling |
 | **n8n** | Google Calendar API | HTTPS (443) | Read events (source of truth) |
 | **n8n** | Canvas LMS API | HTTPS (443) | Assignment due dates |
 | **n8n** | Weather API | HTTPS (443) | Morning briefing data |
-| **MCP Gateway** | Google Calendar API | HTTPS (443) | Schedule queries |
+| **mcpo** | Google Calendar API | HTTPS (443) | Schedule queries via child MCP server |
 | **CrowdSec** | CrowdSec Central API | HTTPS (443) | IP reputation sync (send + receive) |
 | **Caddy** | Let's Encrypt / Cloudflare | HTTPS (443) | SSL certificate issuance via DNS challenge |
-| **Ollama** | ollama.com / HuggingFace | HTTPS (443) | Model weight downloads (first pull only) |
+| **Ollama** (dormant) | ollama.com / HuggingFace | HTTPS (443) | Model weight downloads (setup only, or after 32 GB upgrade) |
 | **restic** (host cron) | Cloudflare R2 | HTTPS (443) | Encrypted backup upload (S3-compatible) |
 
 Containers on `internal: true` networks (`auth_net`, `db_net`, `app_net`, `iot_net`) **cannot** make outbound requests. A compromised container on those networks cannot exfiltrate data or contact a command-and-control server.
@@ -185,7 +189,8 @@ Containers on `internal: true` networks (`auth_net`, `db_net`, `app_net`, `iot_n
 
 For clarity in the diagram, these are intentionally blocked by network segmentation:
 
-- Ollama ✗ PostgreSQL — AI models cannot access the database directly
+- Ollama ✗ anything (dormant for MVP — not started, zero network connections)
+- mcpo ✗ Monica/Vikunja directly — custom MCP servers reach these through Caddy's authenticated API (exception: PostgreSQL MCP server needs direct `db_net` access via multi-homing)
 - Mosquitto ✗ anything outside `iot_net` — MQTT broker is fully isolated
 - n8n ✗ direct container access — n8n reaches services through Caddy's authenticated API, never direct
 - Any container ✗ Docker socket — only the Socket Proxy mounts the socket; all others use TCP proxy

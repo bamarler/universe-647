@@ -1,0 +1,142 @@
+# Universe 647 — Phase 4: Sophon (AI Brain)
+# 4 containers (3 active + 1 dormant)
+# Requires: core stack running (PostgreSQL, Caddy, networks)
+
+services:
+
+  # ==========================================================================
+  # Ollama — Local LLM inference (DORMANT)
+  # Disabled for MVP: 7B models can't reliably do MCP tool calls.
+  # Re-enable after 32GB RAM upgrade with Qwen 3.5 14B.
+  # Start explicitly: docker compose -f stacks/sophon/compose.yaml --profile local up -d ollama
+  # ==========================================================================
+  ollama:
+    image: ollama/ollama:0.6.2
+    container_name: ollama
+    restart: unless-stopped
+    profiles: [local]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    volumes:
+      - /mnt/data/ollama/models:/root/.ollama
+    networks:
+      - ai_net
+    mem_limit: 6g
+    cpus: "4.0"
+    pids_limit: 128
+
+  # ==========================================================================
+  # LiteLLM — LLM API gateway with three-tier model routing
+  # tool-caller → Gemini 2.5 Flash (cheapest reliable function-calling)
+  # smart → Claude Haiku 4.5 (best reasoning-per-dollar)
+  # local → Ollama (dormant, commented out in config)
+  # ==========================================================================
+  litellm:
+    image: ghcr.io/berriai/litellm:main-v1.63.5
+    container_name: litellm
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml"]
+    networks:
+      - ai_net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    mem_limit: 200m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
+  # Open WebUI — Primary chat interface (PWA)
+  # SECURITY: Pin >= v0.6.35 (CVE-2025-64496 — code injection)
+  # Connects to LiteLLM for model routing, PostgreSQL for data storage
+  # MCP tools provided by mcpo, configured in admin panel after first boot
+  # ==========================================================================
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.6.35
+    container_name: open-webui
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/open_webui
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      ENABLE_SIGNUP: "false"
+      DEFAULT_USER_ROLE: admin
+      ENABLE_OLLAMA_API: "false"
+    volumes:
+      - /mnt/data/open-webui:/app/backend/data
+    networks:
+      - ai_net
+      - app_net
+      - db_net
+    depends_on:
+      litellm:
+        condition: service_healthy
+    mem_limit: 500m
+    cpus: "1.0"
+    pids_limit: 256
+
+  # ==========================================================================
+  # mcpo — MCP-to-OpenAPI proxy (custom image)
+  # Base: ghcr.io/open-webui/mcpo:git-788ff92 (v0.0.20)
+  # Adds: monica-mcp built from source (not on npm)
+  # Spawns MCP servers (postgres, monica, vikunja) as stdio child processes
+  # Config template with env var substitution via entrypoint.sh
+  # Multi-homed: ai_net (outbound APIs) + db_net (postgres-mcp direct access)
+  # ==========================================================================
+  mcpo:
+    build:
+      context: ./mcpo
+    container_name: mcpo
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      MCPO_API_KEY: ${MCPO_API_KEY}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DOMAIN: ${DOMAIN}
+      MONICA_API_TOKEN: ${MONICA_API_TOKEN}
+      VIKUNJA_API_TOKEN: ${VIKUNJA_API_TOKEN}
+    volumes:
+      - ./mcpo/config.template.json:/app/config.template.json:ro
+    tmpfs:
+      - /tmp
+    networks:
+      - ai_net
+      - db_net
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 128
+
+# ==============================================================================
+# Networks (defined in stacks/core/compose.yaml)
+# ==============================================================================
+networks:
+  ai_net:
+    external: true
+  app_net:
+    external: true
+  db_net:
+    external: true

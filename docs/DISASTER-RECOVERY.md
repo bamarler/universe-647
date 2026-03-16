@@ -212,9 +212,10 @@ DUMP=$(ls -t /tmp/backup-staging-*/pg_all_*.sql.gz 2>/dev/null | head -1)
 gunzip -c "$DUMP" | docker exec -i postgres psql -U postgres
 docker compose -f stacks/core/compose.yaml down
 
-# 6. Re-download Ollama models (not backed up)
+# 6. Start Sophon stack (Ollama is dormant for MVP, no model download needed)
 make up STACK=sophon
-docker exec ollama ollama pull qwen2.5:7b
+# If Ollama is re-enabled after 32 GB upgrade, download model weights:
+# docker compose -f stacks/sophon/compose.yaml run --rm ollama ollama pull qwen2.5:7b
 
 # 7. Start everything
 make up
