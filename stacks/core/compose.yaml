@@ -75,6 +75,12 @@ services:
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     shm_size: 128m
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
