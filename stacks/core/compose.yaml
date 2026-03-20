@@ -18,8 +18,8 @@ services:
     tmpfs:
       - /tmp
     ports:
-      - "127.0.0.1:443:443"
-      - "127.0.0.1:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:80:80"
     environment:
       DOMAIN: ${DOMAIN}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
