@@ -1,6 +1,5 @@
 creation_rules:
   - path_regex: \.env$
-    encrypted_regex: "^(.*)$"
     age: age1sqyaqaqhmaypxzejd8pkuhsm5vwr89krz6ead7lx867aew22zujqgytf64
 
   - path_regex: secrets\.enc\.yaml$
