@@ -32,7 +32,7 @@ services:
   # local → Ollama (dormant, commented out in config)
   # ==========================================================================
   litellm:
-    image: ghcr.io/berriai/litellm:main-v1.63.5
+    image: ghcr.io/berriai/litellm:main-v1.63.14-stable
     container_name: litellm
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

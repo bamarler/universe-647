@@ -9,7 +9,7 @@ services:
   # CrowdSec bouncer blocks malicious IPs at the edge
   # ==========================================================================
   caddy:
-    image: serfriz/caddy-cloudflare-crowdsec:2.11.0
+    image: serfriz/caddy-cloudflare-crowdsec:2.11.1
     container_name: caddy
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
