@@ -92,6 +92,12 @@ Run `make help` for the full list. Most-used commands:
 | `make trivy-scan` | Scan images for vulnerabilities |
 | `make revoke-device DEVICE=...` | Emergency: revoke a stolen device |
 
+> **Restarting core over SSH:** The core stack includes Tailscale, so `make restart STACK=core` will kill your SSH connection mid-restart, leaving containers in a broken state. Use `nohup` to detach the process from your terminal:
+> ```bash
+> nohup make restart STACK=core &
+> ```
+> Reconnect after ~30 seconds. Output is saved to `~/nohup.out`.
+
 ## Repository Structure
 
 ```
