@@ -1,7 +1,10 @@
 -- Initial migration: enable extensions on the default postgres database
--- NOTE: Database creation is handled by init-databases.sh (Docker entrypoint)
---       because CREATE DATABASE cannot run inside a transaction.
---       golang-migrate is used for schema changes within databases.
+--
+-- NOTE: Bootstrap databases (authelia, n8n, vikunja, open_webui) are created
+--       by init-databases.sh (Docker entrypoint, runs once on first container start).
+--       Databases added in later phases use migrations with dblink_exec, which
+--       executes CREATE DATABASE in a separate connection outside the current
+--       transaction — this is why dblink is enabled here.
 
 -- Enable dblink for cross-database queries if ever needed
 CREATE EXTENSION IF NOT EXISTS dblink;
