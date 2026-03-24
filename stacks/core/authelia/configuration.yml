@@ -1,6 +1,10 @@
 ---
 # Universe 647 — Authelia SSO + 2FA Configuration
 # Mandatory WebAuthn for all services. default_policy: two_factor.
+#
+# Secrets (jwt, session, encryption_key, postgres password) are injected
+# via Authelia's native AUTHELIA_* env var mapping — NOT templates.
+# Only DOMAIN uses the template filter (X_AUTHELIA_CONFIG_FILTERS=template).
 
 server:
   address: tcp://0.0.0.0:9091/
@@ -9,10 +13,6 @@ log:
   level: info
 
 theme: dark
-
-identity_validation:
-  reset_password:
-    jwt_secret: '{{ env "AUTHELIA_JWT_SECRET" }}'
 
 # WebAuthn (FIDO2 security key) as primary 2FA method
 default_2fa_method: webauthn
@@ -26,7 +26,8 @@ webauthn:
   disable: false
   display_name: Universe 647
   attestation_conveyance_preference: indirect
-  user_verification: preferred
+  selection_criteria:
+    user_verification: preferred
   timeout: 60s
 
 # File-based user backend — users defined in users_database.yml
@@ -55,7 +56,6 @@ access_control:
       policy: two_factor
 
 session:
-  secret: '{{ env "AUTHELIA_SESSION_SECRET" }}'
   cookies:
     - domain: '{{ env "DOMAIN" }}'
       authelia_url: 'https://auth.{{ env "DOMAIN" }}'
@@ -72,14 +72,11 @@ regulation:
   ban_time: 10m
 
 # PostgreSQL for session and TOTP storage
-# Secrets injected via Go templates from container environment variables
+# Connection details here, secrets via AUTHELIA_* env vars
 storage:
-  encryption_key: '{{ env "AUTHELIA_STORAGE_ENCRYPTION_KEY" }}'
   postgres:
     address: tcp://postgres:5432
     database: authelia
-    username: '{{ env "POSTGRES_USER" }}'
-    password: '{{ env "POSTGRES_PASSWORD" }}'
 
 # Notification delivery — filesystem for initial setup
 # Switch to SMTP when email is configured
