@@ -10,6 +10,8 @@ log:
 
 theme: dark
 
+jwt_secret: '{{ env "AUTHELIA_JWT_SECRET" }}'
+
 # WebAuthn (FIDO2 security key) as primary 2FA method
 default_2fa_method: webauthn
 
@@ -51,6 +53,7 @@ access_control:
       policy: two_factor
 
 session:
+  secret: '{{ env "AUTHELIA_SESSION_SECRET" }}'
   cookies:
     - domain: '{{ env "DOMAIN" }}'
       authelia_url: 'https://auth.{{ env "DOMAIN" }}'
@@ -67,16 +70,14 @@ regulation:
   ban_time: 10m
 
 # PostgreSQL for session and TOTP storage
-# Connection details passed via environment variables:
-#   AUTHELIA_STORAGE_POSTGRES_HOST, AUTHELIA_STORAGE_POSTGRES_PORT,
-#   AUTHELIA_STORAGE_POSTGRES_DATABASE, AUTHELIA_STORAGE_POSTGRES_USERNAME,
-#   AUTHELIA_STORAGE_POSTGRES_PASSWORD, AUTHELIA_STORAGE_ENCRYPTION_KEY
+# Secrets injected via Go templates from container environment variables
 storage:
+  encryption_key: '{{ env "AUTHELIA_STORAGE_ENCRYPTION_KEY" }}'
   postgres:
     address: tcp://postgres:5432
     database: authelia
-    username: '{{ env "AUTHELIA_STORAGE_POSTGRES_USERNAME" }}'
-    password: '{{ env "AUTHELIA_STORAGE_POSTGRES_PASSWORD" }}'
+    username: '{{ env "POSTGRES_USER" }}'
+    password: '{{ env "POSTGRES_PASSWORD" }}'
 
 # Notification delivery — filesystem for initial setup
 # Switch to SMTP when email is configured
