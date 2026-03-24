@@ -10,7 +10,9 @@ log:
 
 theme: dark
 
-jwt_secret: '{{ env "AUTHELIA_JWT_SECRET" }}'
+identity_validation:
+  reset_password:
+    jwt_secret: '{{ env "AUTHELIA_JWT_SECRET" }}'
 
 # WebAuthn (FIDO2 security key) as primary 2FA method
 default_2fa_method: webauthn
@@ -45,11 +47,11 @@ access_control:
 
   rules:
     # Authelia portal itself must be accessible without auth
-    - domain: auth.{{ env "DOMAIN" }}
+    - domain: 'auth.{{ env "DOMAIN" }}'
       policy: bypass
 
     # Everything else requires password + security key
-    - domain: "*.{{ env "DOMAIN" }}"
+    - domain: '*.{{ env "DOMAIN" }}'
       policy: two_factor
 
 session:

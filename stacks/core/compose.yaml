@@ -138,6 +138,9 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
       - SETGID
       - SETUID
     read_only: true
@@ -173,6 +176,12 @@ services:
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     volumes:
       - /srv/u647/uptime-kuma:/app/data
     networks:
