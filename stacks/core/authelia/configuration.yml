@@ -8,6 +8,7 @@
 
 server:
   address: tcp://0.0.0.0:9091/
+  disable_healthcheck: true
 
 log:
   level: info
@@ -15,7 +16,7 @@ log:
 theme: dark
 
 # WebAuthn (FIDO2 security key) as primary 2FA method
-default_2fa_method: webauthn
+default_2fa_method: totp
 
 totp:
   issuer: universe-647

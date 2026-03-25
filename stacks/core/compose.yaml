@@ -115,11 +115,14 @@ services:
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    read_only: true
     tmpfs:
       - /tmp
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: ${DOMAIN}
+      HOMEPAGE_VAR_DOMAIN: ${DOMAIN}
     volumes:
-      - ./homepage:/app/config:ro
+      - ./homepage:/app/config
+      - /mnt/data:/mnt/data:ro
     networks:
       - app_net
       - monitoring_net
@@ -197,7 +200,7 @@ services:
   # Port 53 must be LAN-reachable; port 3000 for initial setup UI
   # ==========================================================================
   adguard:
-    image: adguard/adguardhome:v0.107.57
+    image: adguard/adguardhome:v0.107.73
     container_name: adguard
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

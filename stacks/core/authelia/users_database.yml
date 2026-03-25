@@ -9,9 +9,9 @@
 #   https://auth.home.yourdomain.com
 
 users:
-  admin:
-    displayname: Admin
-    password: "$argon2id$v=19$m=65536,t=3,p=4$REPLACE_WITH_GENERATED_HASH"
-    email: admin@example.com
+  bamarler:
+    displayname: bamarler
+    password: "$argon2id$v=19$m=65536,t=3,p=4$5TMpj/gwGxyROq+b0+KeyA$ZxgG1/xMzVB/KIOHxBNydXGn7TJpTlMKxDmofeU+1v8"
+    email: bam2738@gmail.com
     groups:
       - admins

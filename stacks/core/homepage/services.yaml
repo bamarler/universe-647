@@ -1,15 +1,19 @@
 ---
 # Universe 647 — Homepage Dashboard Services
-# Replace PLACEHOLDER_DOMAIN with your actual domain
+# Replace {{HOMEPAGE_VAR_DOMAIN}} with your actual domain
 
 - Infrastructure:
     - Caddy:
         icon: caddy.svg
         description: Reverse Proxy
+        server: socket-proxy
+        container: caddy
     - Tailscale:
         icon: tailscale.svg
         href: https://login.tailscale.com/admin/machines
         description: Mesh VPN
+        server: socket-proxy
+        container: tailscale
     - PostgreSQL:
         icon: postgres.svg
         description: Database
@@ -17,18 +21,24 @@
         container: postgres
     - Authelia:
         icon: authelia.svg
-        href: https://auth.PLACEHOLDER_DOMAIN
+        href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
         description: SSO + 2FA
+        server: socket-proxy
+        container: authelia
 
 - Monitoring:
     - Uptime Kuma:
         icon: uptime-kuma.svg
-        href: https://status.PLACEHOLDER_DOMAIN
+        href: https://status.{{HOMEPAGE_VAR_DOMAIN}}
         description: Service Monitoring
+        server: socket-proxy
+        container: uptime-kuma
     - AdGuard Home:
         icon: adguard-home.svg
-        href: https://dns.PLACEHOLDER_DOMAIN
+        href: https://dns.{{HOMEPAGE_VAR_DOMAIN}}
         description: DNS + Ad Blocking
+        server: socket-proxy
+        container: adguard
     - CrowdSec:
         icon: crowdsec.svg
         description: Intrusion Detection
@@ -37,32 +47,46 @@
     - NUT:
         icon: si-apc
         description: UPS Monitor
+        server: socket-proxy
+        container: nut
 
 # Phase 3: Data Layer — uncomment when stacks/data is deployed
 # - Personal Data:
 #     - Monica:
 #         icon: monica.svg
-#         href: https://monica.PLACEHOLDER_DOMAIN
+#         href: https://monica.{{HOMEPAGE_VAR_DOMAIN}}
 #         description: Personal CRM
+#         server: socket-proxy
+#         container: monica
 #     - Vikunja:
 #         icon: vikunja.svg
-#         href: https://tasks.PLACEHOLDER_DOMAIN
+#         href: https://tasks.{{HOMEPAGE_VAR_DOMAIN}}
 #         description: Task Manager
+#         server: socket-proxy
+#         container: vikunja
 #     - n8n:
 #         icon: n8n.svg
-#         href: https://n8n.PLACEHOLDER_DOMAIN
+#         href: https://n8n.{{HOMEPAGE_VAR_DOMAIN}}
 #         description: Workflow Automation
+#         server: socket-proxy
+#         container: n8n
 #     - Ntfy:
 #         icon: ntfy.svg
-#         href: https://ntfy.PLACEHOLDER_DOMAIN
+#         href: https://ntfy.{{HOMEPAGE_VAR_DOMAIN}}
 #         description: Push Notifications
+#         server: socket-proxy
+#         container: ntfy
 
 # Phase 4: Sophon — uncomment when stacks/sophon is deployed
 # - AI Assistant:
 #     - Open WebUI:
 #         icon: openwebui.svg
-#         href: https://chat.PLACEHOLDER_DOMAIN
+#         href: https://chat.{{HOMEPAGE_VAR_DOMAIN}}
 #         description: Chat Interface
+#         server: socket-proxy
+#         container: open-webui
 #     - Ollama:
 #         icon: ollama.svg
 #         description: Local LLM
+#         server: socket-proxy
+#         container: ollama

@@ -56,7 +56,7 @@ status.{$DOMAIN} {
 # AdGuard Home DNS admin
 dns.{$DOMAIN} {
 	import authelia
-	reverse_proxy adguard:3000
+	reverse_proxy adguard:80
 }
 
 # ==============================================================================
