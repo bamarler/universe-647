@@ -221,7 +221,7 @@ networks:
   db_net:
     external: true
   automation_net:
-    external: true
+    name: automation_net
   # Private network for Monica <-> MariaDB only
   monica_net:
     name: monica_net

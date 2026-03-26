@@ -348,8 +348,6 @@ networks:
     internal: true
   ai_net:
     name: ai_net
-  automation_net:
-    name: automation_net
   iot_net:
     name: iot_net
     internal: true
