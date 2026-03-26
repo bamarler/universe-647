@@ -18,6 +18,7 @@ services:
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
+      - FOWNER
       - SETGID
       - SETUID
       - NET_BIND_SERVICE
@@ -102,10 +103,13 @@ services:
       - SETUID
       - NET_BIND_SERVICE
     read_only: true
+    environment:
+      BAIKAL_SKIP_CHOWN: "true"
     tmpfs:
       - /tmp
       - /var/run
       - /var/cache/nginx
+      - /var/log/nginx
     volumes:
       - /srv/u647/baikal/config:/var/www/baikal/config
       - /srv/u647/baikal/data:/var/www/baikal/Specific
