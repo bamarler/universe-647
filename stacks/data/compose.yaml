@@ -99,15 +99,17 @@ services:
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
+      - FOWNER      # Required: nginx init scripts fchmod /run/php socket dir
       - SETGID
       - SETUID
       - NET_BIND_SERVICE
-    read_only: true
+    # read_only omitted: nginx init scripts need to chmod /run/php socket dir
+    # Data is protected by explicit volume mounts; no sensitive writes elsewhere
     environment:
       BAIKAL_SKIP_CHOWN: "true"
     tmpfs:
       - /tmp
-      - /var/run
+      - /run
       - /var/cache/nginx
       - /var/log/nginx
     volumes:
@@ -206,6 +208,7 @@ services:
       - serve
     environment:
       TZ: ${TZ}
+      NTFY_BASE_URL: https://ntfy.${DOMAIN}  # Overrides placeholder in server.yml
     volumes:
       - /srv/u647/ntfy:/var/lib/ntfy
       - ./ntfy/server.yml:/etc/ntfy/server.yml:ro
@@ -225,7 +228,7 @@ networks:
   db_net:
     external: true
   automation_net:
-    name: automation_net
+    external: true  # Defined in stacks/core/compose.yaml
   # Private network for Monica <-> MariaDB only
   monica_net:
     name: monica_net

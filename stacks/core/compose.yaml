@@ -1,5 +1,5 @@
 # Universe 647 — Phase 2: Core Infrastructure
-# 10 containers + migrate utility + 8 networks (shared across all stacks)
+# 11 containers + migrate utility + 9 networks (shared across all stacks)
 
 services:
 
@@ -38,6 +38,7 @@ services:
       - app_net
       - ai_net
       - monitoring_net  # Required: bouncer plugin calls CrowdSec LAPI
+      - automation_net  # Required: resolve n8n hostname for reverse_proxy
     mem_limit: 64m
     cpus: "1.0"
     pids_limit: 128
@@ -191,6 +192,7 @@ services:
       - /srv/u647/uptime-kuma:/app/data
     networks:
       - monitoring_net
+      - app_net  # Required: HTTP health checks for homepage, ntfy, vikunja, etc.
     mem_limit: 128m
     cpus: "0.5"
     pids_limit: 128
@@ -299,6 +301,30 @@ services:
     pids_limit: 32
 
   # ==========================================================================
+  # Glances — System resource monitor
+  # Exposes host CPU, memory, disk, process, and network metrics
+  # pid: host required to see host processes from inside container
+  # ==========================================================================
+  glances:
+    image: nicolargo/glances:latest-full
+    container_name: glances
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pid: host  # Share host PID namespace — required for process list visibility
+    environment:
+      TZ: ${TZ}
+      GLANCES_OPT: "-w --disable-plugin docker"
+    volumes:
+      - ./glances/glances.conf:/etc/glances/glances.conf:ro
+    networks:
+      - app_net        # Caddy reverse proxy access
+      - monitoring_net # Uptime Kuma health checks
+    mem_limit: 128m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
   # golang-migrate — Database migration runner
   # Only runs on demand via: make db-migrate
   # Manages database creation and schema changes
@@ -353,3 +379,5 @@ networks:
     internal: true
   monitoring_net:
     name: monitoring_net
+  automation_net:
+    name: automation_net  # No internal: true — n8n needs outbound for Gmail, Calendar APIs

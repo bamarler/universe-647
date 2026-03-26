@@ -302,6 +302,32 @@ restore: ## Restore from restic backup (interactive)
 		printf "$(YELLOW)Restore cancelled$(NC)\n"; \
 	fi
 
+##@ Monitoring
+
+.PHONY: setup-monitors
+setup-monitors: ## Seed Uptime Kuma monitors (run once after first deploy)
+ifndef UPTIME_KUMA_USER
+	@printf "$(RED)✗ UPTIME_KUMA_USER is required$(NC)\n" >&2
+	@printf "$(YELLOW)  Usage: make setup-monitors UPTIME_KUMA_USER=admin UPTIME_KUMA_PASS=yourpass$(NC)\n" >&2
+	@exit 1
+endif
+ifndef UPTIME_KUMA_PASS
+	@printf "$(RED)✗ UPTIME_KUMA_PASS is required$(NC)\n" >&2
+	@printf "$(YELLOW)  Usage: make setup-monitors UPTIME_KUMA_USER=admin UPTIME_KUMA_PASS=yourpass$(NC)\n" >&2
+	@exit 1
+endif
+	$(check_running)
+	@printf "$(YELLOW)Seeding Uptime Kuma monitors...$(NC)\n"
+	@docker run --rm \
+		--network container:uptime-kuma \
+		-e UPTIME_KUMA_URL=http://localhost:3001 \
+		-e UPTIME_KUMA_USER=$(UPTIME_KUMA_USER) \
+		-e UPTIME_KUMA_PASS=$(UPTIME_KUMA_PASS) \
+		-v $(PWD)/scripts/setup-uptime-kuma.py:/setup.py:ro \
+		python:3.11-slim \
+		bash -c "pip install uptime-kuma-api --quiet && python /setup.py"
+	@printf "$(GREEN)✓ Monitors seeded$(NC)\n"
+
 ##@ Security
 
 .PHONY: trivy-scan

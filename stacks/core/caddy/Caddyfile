@@ -59,6 +59,12 @@ dns.{$DOMAIN} {
 	reverse_proxy adguard:80
 }
 
+# Glances system metrics
+glances.{$DOMAIN} {
+	import authelia
+	reverse_proxy glances:61208
+}
+
 # ==============================================================================
 # Phase 3: Data Layer
 # ==============================================================================
