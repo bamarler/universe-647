@@ -8,6 +8,9 @@
 keys.txt
 *.agekey
 
+# OIDC signing keys
+*.pem
+
 # Runtime data
 /srv/
 /mnt/

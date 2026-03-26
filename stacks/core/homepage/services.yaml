@@ -56,7 +56,6 @@
         server: socket-proxy
         container: nut
 
-# Phase 3: Data Layer
 - Personal Data:
     - Monica:
         icon: monica.svg
@@ -64,12 +63,25 @@
         description: Personal CRM
         server: socket-proxy
         container: monica
+    - MariaDB:
+        icon: mariadb.svg
+        description: Monica Database
+        server: socket-proxy
+        container: monica-db
     - Vikunja:
         icon: vikunja.svg
         href: https://tasks.{{HOMEPAGE_VAR_DOMAIN}}
         description: Task Manager
         server: socket-proxy
         container: vikunja
+    - Baikal:
+        icon: baikal.svg
+        href: https://dav.{{HOMEPAGE_VAR_DOMAIN}}
+        description: CalDAV / CardDAV
+        server: socket-proxy
+        container: baikal
+
+- Automation:
     - n8n:
         icon: n8n.svg
         href: https://n8n.{{HOMEPAGE_VAR_DOMAIN}}

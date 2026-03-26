@@ -92,3 +92,33 @@ notifier:
   #   password: app-specific-password
   #   sender: "Universe 647 <your-email@gmail.com>"
   #   subject: "[Universe 647] {title}"
+
+# OpenID Connect provider — SSO for Vikunja (and future OIDC clients)
+identity_providers:
+  oidc:
+    jwks:
+      - key: {{ secret "/config/jwks-rsa.pem" | mindent 10 "|" | msquote }}
+        algorithm: 'RS256'
+        use: 'sig'
+    lifespans:
+      access_token: '1h'
+      authorize_code: '1m'
+      id_token: '1h'
+      refresh_token: '90m'
+    clients:
+      - client_id: 'vikunja'
+        client_name: 'Vikunja'
+        client_secret: '$VIKUNJA_OIDC_HASH'  # REPLACE after running hash command
+        public: false
+        authorization_policy: 'two_factor'
+        redirect_uris:
+          - 'https://tasks.{{ env "DOMAIN" }}/auth/openid/authelia'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+        token_endpoint_auth_method: 'client_secret_basic'

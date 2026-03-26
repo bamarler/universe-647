@@ -149,9 +149,11 @@ services:
       N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_JWT_SECRET}
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: "168"
+      EXTERNAL_HOOK_FILES: /hooks/hooks.js
     volumes:
       - /mnt/data/n8n:/home/node/.n8n
       - ./workflows:/workflows:ro
+      - ./n8n/hooks.js:/hooks/hooks.js:ro
     networks:
       - automation_net
       - db_net
@@ -175,6 +177,13 @@ services:
       VIKUNJA_SERVICE_TIMEZONE: ${TZ}
       VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
       VIKUNJA_SERVICE_ENABLECALDAV: "true"
+      # OpenID Connect — Authelia SSO (auto-creates user on first login)
+      VIKUNJA_AUTH_LOCAL_ENABLED: "false"
+      VIKUNJA_AUTH_OPENID_ENABLED: "true"
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_NAME: Authelia
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_AUTHURL: https://auth.${DOMAIN}
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTID: vikunja
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTSECRET: ${VIKUNJA_OIDC_SECRET}
       VIKUNJA_DATABASE_TYPE: postgres
       VIKUNJA_DATABASE_HOST: postgres
       VIKUNJA_DATABASE_USER: ${POSTGRES_USER}
