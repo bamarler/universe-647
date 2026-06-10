@@ -26,4 +26,4 @@ agent-docs/
 *.swp
 
 # OS
-.DS_Store
+.DS_Storenohup.out

@@ -113,7 +113,7 @@ identity_providers:
     clients:
       - client_id: 'vikunja'
         client_name: 'Vikunja'
-        client_secret: '$VIKUNJA_OIDC_HASH'  # REPLACE after running hash command
+        client_secret: '$pbkdf2-sha512$310000$l9vpMwilxsZHWDwohzRiiw$tEojUO3m4XVcGTFGPCA8iYpRVTe5uGczaL4.lL4ONQW122WW/HGwhmTOb1CT5Q8yoZeN4AntgMEtC1k71bLKOQ'
         public: false
         authorization_policy: 'two_factor'
         redirect_uris:
