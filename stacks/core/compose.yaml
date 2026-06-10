@@ -165,12 +165,43 @@ services:
     networks:
       - auth_net
       - db_net
+      - authelia_redis_net
     depends_on:
       postgres:
         condition: service_healthy
-    mem_limit: 128m
+      authelia-redis:
+        condition: service_started
+    # 256m: argon2id allocates 64MiB per password verification; 128m
+    # risked OOM-kill restarts, which wiped all in-memory sessions
+    mem_limit: 256m
     cpus: "0.5"
     pids_limit: 64
+
+  # ==========================================================================
+  # Authelia Redis — persistent session store
+  # Sessions survive Authelia restarts; AOF persistence survives redis restarts.
+  # Isolated sidecar network (same pattern as monica-db, nextcloud-redis).
+  # ==========================================================================
+  authelia-redis:
+    image: redis:7.4-alpine
+    container_name: authelia-redis
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # Run as the redis user directly — the image's root entrypoint needs
+    # CHOWN/SETUID which cap_drop ALL removes
+    user: "999:999"
+    read_only: true
+    tmpfs:
+      - /tmp
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - authelia_redis_data:/data
+    networks:
+      - authelia_redis_net
+    mem_limit: 32m
+    cpus: "0.25"
+    pids_limit: 32
 
   # ==========================================================================
   # Uptime Kuma — Service monitoring
@@ -357,6 +388,7 @@ volumes:
   caddy_logs:       # Shared: Caddy writes, CrowdSec reads
   crowdsec_data:
   crowdsec_config:
+  authelia_redis_data:
 
 # ==============================================================================
 # Networks — ALL 8 defined here, referenced as external: true in other stacks
@@ -382,3 +414,6 @@ networks:
     name: monitoring_net
   automation_net:
     name: automation_net  # No internal: true — n8n needs outbound for Gmail, Calendar APIs
+  authelia_redis_net:
+    name: authelia_redis_net
+    internal: true
