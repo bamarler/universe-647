@@ -77,7 +77,10 @@ services:
   # Used by Authelia, Open WebUI, n8n, Vikunja, Nextcloud
   # ==========================================================================
   postgres:
-    image: postgres:16.8
+    # pgvector build of postgres 16 (official postgres image lacks the extension).
+    # Same major version — drop-in on the existing data dir. Keep >=0.8.2
+    # (CVE-2026-3172: parallel HNSW build overflow).
+    image: pgvector/pgvector:0.8.2-pg16
     container_name: postgres
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

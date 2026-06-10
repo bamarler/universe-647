@@ -438,5 +438,10 @@ sophon ──→ PostgreSQL (`sophon` db: ent schema + chunk table w/ halfvec(76
 6. Authelia tailnet `one_factor` rule (needs Caddy `trusted_proxies` work);
    Pocket ID migration if auth friction persists after the session fix.
 7. Resolve the Caddy `0.0.0.0:443` vs documented `127.0.0.1:443` discrepancy (§A.3).
+7a. Restructure the Authelia mount: `configuration.yml` as an individual `:ro` file
+   mount; move `users_database.yml` (the only file Authelia writes — password
+   changes) to `/srv/u647/authelia/`. The root-running container chowns the
+   rw-mounted `./authelia` dir today, which breaks `git pull` on the server
+   (unlink needs dir write permission) until a manual `chown` restores ownership.
 8. Update gitignored `agent-docs/` to reflect the pivot.
 9. Capacitor wrap or SwiftUI client generated from sophon's OpenAPI spec.
