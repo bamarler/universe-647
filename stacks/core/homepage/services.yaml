@@ -83,13 +83,13 @@
 
 - Second Brain:
     - Tomoko:
-        icon: mdi-brain
+        icon: https://tomoko.{{HOMEPAGE_VAR_DOMAIN}}/icon.svg
         href: https://tomoko.{{HOMEPAGE_VAR_DOMAIN}}
         description: Interface
         server: socket-proxy
         container: tomoko
     - Sophon:
-        icon: mdi-graph-outline
+        icon: mdi-brain
         description: Backend + Search
         server: socket-proxy
         container: sophon
