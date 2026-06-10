@@ -81,6 +81,24 @@
         server: socket-proxy
         container: baikal
 
+- Second Brain:
+    - Tomoko:
+        icon: mdi-brain
+        href: https://tomoko.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Interface
+        server: socket-proxy
+        container: tomoko
+    - Sophon:
+        icon: mdi-graph-outline
+        description: Backend + Search
+        server: socket-proxy
+        container: sophon
+    - LiteLLM:
+        icon: mdi-router-network
+        description: LLM Gateway
+        server: socket-proxy
+        container: litellm
+
 - Automation:
     - n8n:
         icon: n8n.svg

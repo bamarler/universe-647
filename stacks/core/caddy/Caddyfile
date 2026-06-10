@@ -103,6 +103,20 @@ chat.{$DOMAIN} {
 	reverse_proxy open-webui:8080
 }
 
+# Tomoko (second-brain UI) + Sophon API — same origin so the PWA and
+# Authelia session cookie just work
+tomoko.{$DOMAIN} {
+	import authelia
+
+	handle /api/* {
+		reverse_proxy sophon:8080
+	}
+
+	handle {
+		reverse_proxy tomoko:8080
+	}
+}
+
 # ==============================================================================
 # Phase 5: Storage
 # ==============================================================================

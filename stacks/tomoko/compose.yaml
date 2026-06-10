@@ -1,0 +1,26 @@
+# Universe 647 — Tomoko (Second Brain Interface)
+# Static Svelte 5 PWA served by unprivileged nginx; talks to sophon via
+# Caddy's /api split on tomoko.{DOMAIN}. No secrets, no database.
+# Requires: core stack running (Caddy, networks)
+
+services:
+
+  tomoko:
+    build:
+      context: ./app
+    container_name: tomoko
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - app_net
+    mem_limit: 32m
+    cpus: "0.25"
+    pids_limit: 64
+
+networks:
+  app_net:
+    external: true

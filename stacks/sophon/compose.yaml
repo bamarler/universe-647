@@ -5,6 +5,32 @@
 services:
 
   # ==========================================================================
+  # Sophon — the second-brain backend (Go)
+  # Tasks, notes, supertags, hybrid search (pgvector + FTS), retrieval-only AI.
+  # Boots even if LiteLLM is down (semantic features degrade gracefully).
+  # Reachable only via Caddy (tomoko.{DOMAIN}/api); trusts Remote-User header.
+  # ==========================================================================
+  sophon:
+    build:
+      context: ./app
+    container_name: sophon
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sophon?sslmode=disable
+      LITELLM_BASE_URL: http://litellm:4000/v1
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+    networks:
+      - ai_net   # LiteLLM (embeddings + intent parsing)
+      - app_net  # Caddy reverse proxy
+      - db_net   # PostgreSQL (sophon database)
+    mem_limit: 128m
+    cpus: "0.5"
+    pids_limit: 64
+
+  # ==========================================================================
   # Ollama — Local LLM inference (DORMANT)
   # Disabled for MVP: 7B models can't reliably do MCP tool calls.
   # Re-enable after 32GB RAM upgrade with Qwen 3.5 14B.

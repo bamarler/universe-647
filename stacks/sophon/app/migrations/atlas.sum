@@ -1,0 +1,4 @@
+h1:G3HWZLvZmntPdSNlIkU+gx0rMxMHHRmA4H9EJrCKRcY=
+00001_pgvector_extension.up.sql h1:pJPg5duGzONN5lItqUKoZhHRIlS6V+6VHjvQtOh4S6c=
+20260610200658_init_schema.up.sql h1:kmVBmAdaEEd9NqMz8mNIzbT0Sf6SDe9kWsLydwDLVA4=
+20260610200700_search_infrastructure.up.sql h1:sH3BgDqDN2vwyrZXS5+KMR/EzkFKL7Tq++8MMPb3vFM=

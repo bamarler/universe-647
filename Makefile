@@ -16,21 +16,23 @@ NC := \033[0m
 CORE     := stacks/core/compose.yaml
 DATA     := stacks/data/compose.yaml
 SOPHON   := stacks/sophon/compose.yaml
+TOMOKO   := stacks/tomoko/compose.yaml
 STORAGE  := stacks/storage/compose.yaml
 VOICE    := stacks/voice/compose.yaml
 SMARTHOME := stacks/smarthome/compose.yaml
 
 # All stacks in dependency order
-ALL_STACKS := $(CORE) $(DATA) $(SOPHON) $(STORAGE) $(VOICE) $(SMARTHOME)
+ALL_STACKS := $(CORE) $(DATA) $(SOPHON) $(TOMOKO) $(STORAGE) $(VOICE) $(SMARTHOME)
 
 # Map friendly names to compose files (usage: make up STACK=core)
 STACK_FILE = $(if $(filter core,$(STACK)),$(CORE),\
              $(if $(filter data,$(STACK)),$(DATA),\
              $(if $(filter sophon,$(STACK)),$(SOPHON),\
+             $(if $(filter tomoko,$(STACK)),$(TOMOKO),\
              $(if $(filter storage,$(STACK)),$(STORAGE),\
              $(if $(filter voice,$(STACK)),$(VOICE),\
              $(if $(filter smarthome,$(STACK)),$(SMARTHOME),\
-             ))))))
+             )))))))
 
 # ==================== Helpers ====================
 
