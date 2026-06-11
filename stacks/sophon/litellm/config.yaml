@@ -18,6 +18,13 @@ model_list:
       model: anthropic/claude-haiku-4-5-20250620
       api_key: os.environ/ANTHROPIC_API_KEY
 
+  # Embeddings — Gemini embedding for sophon's search index
+  # 768-dim MRL truncation requested by the client (sophon re-normalizes)
+  - model_name: gemini-embedding-001
+    litellm_params:
+      model: gemini/gemini-embedding-001
+      api_key: os.environ/GEMINI_API_KEY
+
   # Tier 3: Local — Ollama (DORMANT)
   # Uncomment after 32GB RAM upgrade + Ollama re-enabled
   # - model_name: local
