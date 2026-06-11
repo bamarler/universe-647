@@ -134,7 +134,7 @@ encrypt: ## Encrypt all .env files → .env.enc (run before git commit)
 .PHONY: build
 build: ## Build custom images (STACK=sophon to build mcpo only)
 ifdef STACK
-	@if [ -z "$(STACK_FILE)" ]; then \
+	@if [ -z "$(strip $(STACK_FILE))" ]; then \
 		printf "$(RED)✗ Unknown stack: $(STACK)$(NC)\n" >&2; \
 		exit 1; \
 	fi
@@ -157,9 +157,9 @@ endif
 up: ## Start stacks (all, or STACK=core|data|sophon|storage|voice|smarthome)
 	$(check_secrets)
 ifdef STACK
-	@if [ -z "$(STACK_FILE)" ]; then \
+	@if [ -z "$(strip $(STACK_FILE))" ]; then \
 		printf "$(RED)✗ Unknown stack: $(STACK)$(NC)\n" >&2; \
-		printf "$(YELLOW)  Valid: core, data, sophon, storage, voice, smarthome$(NC)\n" >&2; \
+		printf "$(YELLOW)  Valid: core, data, sophon, tomoko, storage, voice, smarthome$(NC)\n" >&2; \
 		exit 1; \
 	fi
 	@printf "$(YELLOW)Starting $(STACK) stack...$(NC)\n"
@@ -191,14 +191,30 @@ else
 endif
 
 .PHONY: down
-down: ## Stop stacks (all, or STACK=name)
+down: ## Stop stacks (STACK=name; stopping ALL asks for confirmation, FORCE=1 skips)
 ifdef STACK
+	@if [ -z "$(strip $(STACK_FILE))" ]; then \
+		printf "$(RED)✗ Unknown stack: $(STACK)$(NC)\n" >&2; \
+		printf "$(YELLOW)  Valid: core, data, sophon, tomoko, storage, voice, smarthome$(NC)\n" >&2; \
+		printf "$(YELLOW)  (note: the variable is STACK=, case matters)$(NC)\n" >&2; \
+		exit 1; \
+	fi
 	@printf "$(YELLOW)Stopping $(STACK) stack...$(NC)\n"
 	@docker compose -f $(STACK_FILE) down
 	@printf "$(GREEN)✓ $(STACK) stack stopped$(NC)\n"
 else
+	@printf "$(RED)⚠ No STACK given — this stops EVERYTHING including core$(NC)\n"
+	@printf "$(RED)  (Tailscale + Caddy go down: ALL remote access is lost until$(NC)\n"
+	@printf "$(RED)  someone runs 'make up' at the physical console).$(NC)\n"
+ifndef FORCE
+	@printf "Type 'all' to confirm: "; read ans; \
+	if [ "$$ans" != "all" ]; then \
+		printf "$(YELLOW)Aborted — nothing was stopped.$(NC)\n"; \
+		exit 1; \
+	fi
+endif
 	@printf "$(YELLOW)Stopping all stacks...$(NC)\n"
-	@for stack in $(SMARTHOME) $(VOICE) $(STORAGE) $(SOPHON) $(DATA) $(CORE); do \
+	@for stack in $(SMARTHOME) $(VOICE) $(STORAGE) $(TOMOKO) $(SOPHON) $(DATA) $(CORE); do \
 		name=$$(basename $$(dirname $$stack)); \
 		printf "$(CYAN)  ↳ Stopping $$name...$(NC)\n"; \
 		docker compose -f $$stack down 2>/dev/null || true; \
