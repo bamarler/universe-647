@@ -78,15 +78,18 @@ services:
     networks:
       - ai_net
     healthcheck:
-      # /health requires an API key (always 401s); liveliness is public
-      test: ["CMD", "curl", "-sf", "http://localhost:4000/health/liveliness"]
+      # /health requires an API key (always 401s); liveliness is public.
+      # busybox wget: the v1.88 alpine image ships no curl.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:4000/health/liveliness"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
-    mem_limit: 200m
-    cpus: "0.5"
-    pids_limit: 64
+      start_period: 30s
+    # v1.88 imports blow well past the old 200m cap — the container was
+    # OOM-killed mid-startup before its first (buffered) log line flushed
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 128
 
   # ==========================================================================
   # Open WebUI — Primary chat interface (PWA)
