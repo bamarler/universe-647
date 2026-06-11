@@ -58,7 +58,8 @@ services:
   # local → Ollama (dormant, commented out in config)
   # ==========================================================================
   litellm:
-    # v1.88.1: first pin recent enough to know the Gemini 3.x family
+    # Newest stable line as of 2026-06 (1.88.0 + bugfix patch; 1.89 is still
+    # RC). The previous pin (v1.63, 2025-03) predated the Gemini 3.x family.
     image: ghcr.io/berriai/litellm:v1.88.1
     container_name: litellm
     restart: unless-stopped
