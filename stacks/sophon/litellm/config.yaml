@@ -2,13 +2,15 @@
 # Three-tier strategy: tool-caller (cheap), smart (quality), local (dormant)
 
 model_list:
-  # Tier 1: Tool Caller — Gemini 2.5 Flash
-  # Cheapest reliable function-calling model ($0.30/$2.50 per MTok)
-  # Used for all MCP tool-calling conversations
+  # Tier 1: Tool Caller — Gemini 3.1 Flash-Lite
+  # Fastest TTFT on the market (~180ms) at $0.25/$1.50 per MTok; a 2-tool
+  # forced function call needs nothing stronger. Thinking disabled — this
+  # route serves an interactive command bar, latency is the product.
   - model_name: tool-caller
     litellm_params:
-      model: gemini/gemini-2.5-flash
+      model: gemini/gemini-3.1-flash-lite
       api_key: os.environ/GEMINI_API_KEY
+      reasoning_effort: "disable"
 
   # Tier 2: Smart — Claude Haiku 4.5
   # Best reasoning-per-dollar ($1/$5 per MTok)
