@@ -22,6 +22,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sophon?sslmode=disable
       LLM_BASE_URL: http://bifrost:8080/openai/v1
       LLM_API_KEY: ${BIFROST_VK}
+    depends_on:
+      # Wait for the gateway on normal boots (sophon's LLM ping is one-shot),
+      # but required:false keeps sophon starting in degraded lexical-only mode
+      # if bifrost is genuinely broken — browse/CRUD must survive a dead gateway.
+      bifrost:
+        condition: service_healthy
+        required: false
     networks:
       - ai_net   # Bifrost (embeddings + intent parsing)
       - app_net  # Caddy reverse proxy
