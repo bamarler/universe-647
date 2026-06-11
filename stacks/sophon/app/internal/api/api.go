@@ -10,12 +10,16 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/bamarler/universe-647/sophon/internal/ent"
+	"github.com/bamarler/universe-647/sophon/internal/index"
 	"github.com/bamarler/universe-647/sophon/internal/llm"
+	"github.com/bamarler/universe-647/sophon/internal/search"
 )
 
 type Deps struct {
-	Ent *ent.Client
-	LLM llm.Client
+	Ent      *ent.Client
+	LLM      llm.Client
+	Indexer  *index.Indexer
+	Searcher *search.Searcher
 	// Dev disables the Remote-User requirement for local runs.
 	Dev bool
 }
@@ -24,8 +28,8 @@ type Deps struct {
 func New(deps Deps) (chi.Router, huma.API) {
 	router := chi.NewRouter()
 
-	cfg := huma.DefaultConfig("Sophon", "0.1.0")
-	cfg.Info.Description = "Retrieval-only second brain: tasks, notes, tags, hybrid search."
+	cfg := huma.DefaultConfig("Sophon", "0.2.0")
+	cfg.Info.Description = "Retrieval-only second brain: tasks, notes, supertags, hybrid search."
 	cfg.Servers = []*huma.Server{{URL: "/api"}}
 	cfg.OpenAPIPath = "/api/openapi"
 	cfg.DocsPath = "/api/docs"
@@ -39,6 +43,14 @@ func New(deps Deps) (chi.Router, huma.API) {
 	humaAPI.UseMiddleware(authMiddleware(humaAPI, deps.Dev))
 
 	registerTree(humaAPI, deps)
+	registerTags(humaAPI, deps)
+	registerTasks(humaAPI, deps)
+	registerNotes(humaAPI, deps)
+	registerFolders(humaAPI, deps)
+	registerViews(humaAPI, deps)
+	registerSearch(humaAPI, deps)
+	registerCommand(humaAPI, deps)
+	registerReindex(humaAPI, deps)
 
 	return router, humaAPI
 }

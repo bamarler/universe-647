@@ -1,5 +1,6 @@
 <script lang="ts">
-  import Tree from './Tree.svelte';
+  import TreeList from './TreeList.svelte';
+  import { router } from './router.svelte';
   import type { TreeNode } from './api';
 
   let { nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number } = $props();
@@ -13,6 +14,7 @@
         class="hover:glass focus-visible:glass flex w-full cursor-pointer items-center
                gap-2.5 rounded-md px-2 py-2.5 text-left text-[0.95rem]
                transition-shadow hover:shadow-glow-sm focus-visible:outline-none"
+        onclick={() => router.go(`/p/${node.id}`)}
       >
         <span
           class={['text-xs', node.kind === 'project' ? 'text-ember' : 'text-ember-bright']}
@@ -26,7 +28,7 @@
         </span>
       </button>
       {#if node.children.length > 0}
-        <Tree nodes={node.children} depth={depth + 1} />
+        <TreeList nodes={node.children} depth={depth + 1} />
       {/if}
     </li>
   {/each}

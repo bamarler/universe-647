@@ -5,8 +5,6 @@ package app
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,16 +12,15 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 
 	"entgo.io/ent/dialect"
-	"github.com/golang-migrate/migrate/v4"
-	migratepgx "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/bamarler/universe-647/sophon/internal/api"
 	"github.com/bamarler/universe-647/sophon/internal/config"
 	"github.com/bamarler/universe-647/sophon/internal/ent"
+	"github.com/bamarler/universe-647/sophon/internal/index"
 	"github.com/bamarler/universe-647/sophon/internal/llm"
+	"github.com/bamarler/universe-647/sophon/internal/search"
 	"github.com/bamarler/universe-647/sophon/migrations"
 )
 
@@ -43,20 +40,25 @@ func Init(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, erro
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	db := stdlib.OpenDBFromPool(pool)
-
-	if err := runMigrations(db); err != nil {
+	if err := migrations.Apply(cfg.DatabaseURL); err != nil {
 		return nil, fmt.Errorf("apply migrations: %w", err)
 	}
+
+	db := stdlib.OpenDBFromPool(pool)
 
 	entClient := ent.NewClient(ent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 
 	llmClient := tryInitLLM(cfg, log)
 
+	indexer := index.New(entClient, llmClient, log)
+	indexer.Start(ctx)
+
 	router, _ := api.New(api.Deps{
-		Ent: entClient,
-		LLM: llmClient,
-		Dev: cfg.Dev,
+		Ent:      entClient,
+		LLM:      llmClient,
+		Indexer:  indexer,
+		Searcher: search.New(db, llmClient),
+		Dev:      cfg.Dev,
 	})
 
 	return &App{
@@ -71,31 +73,10 @@ func (a *App) Close() error {
 	return a.Ent.Close()
 }
 
-// runMigrations applies the embedded versioned migrations. A fresh database
-// converges to the full schema; an up-to-date one is a no-op.
-func runMigrations(db *sql.DB) error {
-	src, err := iofs.New(migrations.FS, ".")
-	if err != nil {
-		return err
-	}
-	driver, err := migratepgx.WithInstance(db, &migratepgx.Config{})
-	if err != nil {
-		return err
-	}
-	m, err := migrate.NewWithInstance("iofs", src, "sophon", driver)
-	if err != nil {
-		return err
-	}
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return err
-	}
-	return nil
-}
-
 // tryInitLLM never fails the boot: with LiteLLM down, sophon still serves
 // browse/CRUD and only semantic features report unavailable.
 func tryInitLLM(cfg *config.Config, log *slog.Logger) llm.Client {
-	client, err := llm.New(cfg.LiteLLMBaseURL, cfg.LiteLLMAPIKey, cfg.EmbedModel)
+	client, err := llm.New(cfg.LiteLLMBaseURL, cfg.LiteLLMAPIKey, cfg.EmbedModel, cfg.IntentModel)
 	if err != nil {
 		log.Warn("llm gateway unavailable, semantic features disabled", "error", err)
 		return llm.Disabled{}
