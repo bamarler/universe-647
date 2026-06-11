@@ -424,6 +424,31 @@ sophon ──→ PostgreSQL (`sophon` db: ent schema + chunk table w/ halfvec(76
 - **Tomoko UI** — three surfaces only: tree browser (projects/contexts as folders),
   persistent command bar (navigates, never chats), item editor (every field editable).
 
+## G. Gateway swap: LiteLLM → Bifrost (June 2026 addendum)
+
+LiteLLM was retired after v1.88 measured **~956MiB idle** on the server. The
+footprint is structural: ~500MB/worker per LiteLLM's own performance roadmap
+(~200MB of it just Prisma imports), a bundled Next.js admin UI in the image,
+eagerly-imported provider SDKs, plus open unbounded-memory-growth issues
+(LiteLLM ships an official memory-troubleshooting page). The replacement is
+**Bifrost** (maximhq/bifrost — Go, Apache-2.0, single container, ~tens of MB):
+
+- OpenAI-compatible inbound at `/openai[/v1]/...`; openai-go works unchanged.
+- Verified in source: OpenAI `dimensions` → Gemini `outputDimensionality`
+  (embeddings) and `tool_choice: "required"` → Gemini `ANY` mode.
+- Model aliases per provider key (`tool-caller` → gemini-3.1-flash-lite,
+  `smart` → claude-haiku-4-5) in `stacks/sophon/bifrost/config.json`.
+- Inbound auth in OSS: governance virtual keys (`BIFROST_VK`) with
+  `enforce_auth_on_inference`; dashboard credentials separate.
+- Caveat: fast release train with prior translation-layer regressions — pin
+  exact image tags and smoke-test tool calls + embeddings after every bump.
+
+**"No gateway at all" was considered and declined**: Google's native
+OpenAI-compat endpoint is beta, silently ignores unknown params (`dimensions`
+on embeddings undocumented), and a gateway keeps n8n + future consumers on the
+same one-line-config abstraction where only the model name changes. Sophon's
+config is now vendor-neutral (`LLM_BASE_URL`/`LLM_API_KEY`).
+
 ## Deferred / next steps (not in the current build)
 
 1. **Cleanup** once the MVP is in daily use: remove Vikunja, Monica+MariaDB, mcpo,
@@ -432,9 +457,9 @@ sophon ──→ PostgreSQL (`sophon` db: ent schema + chunk table w/ halfvec(76
 3. File ingestion beyond markdown; Nextcloud unaffected meanwhile.
 4. n8n workflows targeting sophon's API through Caddy (morning briefing, email
    task extraction, Canvas sync).
-5. Optional retrieval upgrades, in order of likely value: rerank via LiteLLM
-   `/rerank` → BM25 extension (pg_search/pg_textsearch) → Apache AGE if real
-   multi-hop queries appear in logs.
+5. Optional retrieval upgrades, in order of likely value: rerank via the gateway
+   (Bifrost has a native `/v1/rerank` route) → BM25 extension
+   (pg_search/pg_textsearch) → Apache AGE if real multi-hop queries appear in logs.
 6. Authelia tailnet `one_factor` rule (needs Caddy `trusted_proxies` work);
    Pocket ID migration if auth friction persists after the session fix.
 7. Resolve the Caddy `0.0.0.0:443` vs documented `127.0.0.1:443` discrepancy (§A.3).

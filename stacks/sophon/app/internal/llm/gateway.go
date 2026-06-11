@@ -17,20 +17,21 @@ import (
 
 const embedDims = 768
 
-// LiteLLM talks to the OpenAI-compatible gateway (LiteLLM now, possibly a
+// Gateway talks to any OpenAI-compatible LLM gateway (Bifrost today; LiteLLM
+// before it; a local model server later — same API shape either way).
 // local model later — same API shape either way).
-type LiteLLM struct {
+type Gateway struct {
 	api         openai.Client
 	embedModel  string
 	intentModel string
 }
 
-func New(baseURL, apiKey, embedModel, intentModel string) (*LiteLLM, error) {
+func New(baseURL, apiKey, embedModel, intentModel string) (*Gateway, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil || u.Host == "" {
-		return nil, fmt.Errorf("invalid LiteLLM base URL %q", baseURL)
+		return nil, fmt.Errorf("invalid LLM gateway base URL %q", baseURL)
 	}
-	c := &LiteLLM{
+	c := &Gateway{
 		api: openai.NewClient(
 			option.WithBaseURL(strings.TrimRight(baseURL, "/")),
 			option.WithAPIKey(apiKey),
@@ -46,7 +47,7 @@ func New(baseURL, apiKey, embedModel, intentModel string) (*LiteLLM, error) {
 	return c, nil
 }
 
-func (c *LiteLLM) ping(ctx context.Context, baseURL, apiKey string) error {
+func (c *Gateway) ping(ctx context.Context, baseURL, apiKey string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		strings.TrimRight(baseURL, "/")+"/models", nil)
 	if err != nil {
@@ -66,7 +67,7 @@ func (c *LiteLLM) ping(ctx context.Context, baseURL, apiKey string) error {
 	return nil
 }
 
-func (c *LiteLLM) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+func (c *Gateway) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
@@ -162,7 +163,7 @@ func toolSchemas() []openai.ChatCompletionToolUnionParam {
 	}
 }
 
-func (c *LiteLLM) ParseCommand(ctx context.Context, input string, now time.Time, vocab Vocab) (*Command, error) {
+func (c *Gateway) ParseCommand(ctx context.Context, input string, now time.Time, vocab Vocab) (*Command, error) {
 	user := fmt.Sprintf(
 		"Current datetime: %s (%s)\nProjects: %s\nContexts: %s\nTags: %s\n\nInput: %s",
 		now.Format(time.RFC3339), now.Weekday(),

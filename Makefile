@@ -222,8 +222,20 @@ pull: ## Pull latest images for all stacks
 	@printf "$(GREEN)✓ All images pulled$(NC)\n"
 
 .PHONY: status
-status: ## Show status of all containers
+status: ## Show status of all containers (use status-ports for port mappings)
 	@printf "$(YELLOW)Container status:$(NC)\n\n"
+	@for stack in $(ALL_STACKS); do \
+		name=$$(basename $$(dirname $$stack)); \
+		if docker compose -f $$stack ps --quiet 2>/dev/null | head -n1 | grep -q .; then \
+			printf "$(BLUE)$$name:$(NC)\n"; \
+			docker compose -f $$stack ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null; \
+			printf "\n"; \
+		fi; \
+	done
+
+.PHONY: status-ports
+status-ports: ## Show container status including port mappings
+	@printf "$(YELLOW)Container status (with ports):$(NC)\n\n"
 	@for stack in $(ALL_STACKS); do \
 		name=$$(basename $$(dirname $$stack)); \
 		if docker compose -f $$stack ps --quiet 2>/dev/null | head -n1 | grep -q .; then \

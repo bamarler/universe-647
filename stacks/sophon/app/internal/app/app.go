@@ -73,10 +73,10 @@ func (a *App) Close() error {
 	return a.Ent.Close()
 }
 
-// tryInitLLM never fails the boot: with LiteLLM down, sophon still serves
+// tryInitLLM never fails the boot: with the gateway down, sophon still serves
 // browse/CRUD and only semantic features report unavailable.
 func tryInitLLM(cfg *config.Config, log *slog.Logger) llm.Client {
-	client, err := llm.New(cfg.LiteLLMBaseURL, cfg.LiteLLMAPIKey, cfg.EmbedModel, cfg.IntentModel)
+	client, err := llm.New(cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.EmbedModel, cfg.IntentModel)
 	if err != nil {
 		log.Warn("llm gateway unavailable, semantic features disabled", "error", err)
 		return llm.Disabled{}

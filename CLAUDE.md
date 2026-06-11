@@ -65,7 +65,7 @@ Read `agent-docs/` BEFORE starting any task. These are gitignored AI context doc
 
 **Traffic flow**: iPhone/Laptop → Tailscale (WireGuard) → Caddy (reverse proxy) → Authelia (SSO + WebAuthn 2FA) → backend service. No ports are exposed to the public internet.
 
-**AI pipeline**: Open WebUI → LiteLLM (routes "tool-caller" to Gemini 2.5 Flash, "smart" to Claude Haiku 4.5; Ollama dormant until 32GB upgrade) + mcpo proxy (bridges MCP tool calls to Monica, Vikunja, Calendar, PostgreSQL, Home Assistant, Nextcloud).
+**AI pipeline**: sophon + Open WebUI (legacy) → Bifrost gateway (aliases: "tool-caller" → Gemini 3.1 Flash-Lite, "smart" → Claude Haiku 4.5; Ollama dormant until 32GB upgrade; virtual-key inbound auth) + mcpo proxy (legacy, retiring with Open WebUI).
 
 **Automation**: n8n reaches services through Caddy's authenticated API endpoints (never direct container access). Handles morning briefings, email monitoring, contact sync, task extraction.
 

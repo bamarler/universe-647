@@ -93,11 +93,11 @@
         description: Backend + Search
         server: socket-proxy
         container: sophon
-    - LiteLLM:
+    - Bifrost:
         icon: mdi-router-network
         description: LLM Gateway
         server: socket-proxy
-        container: litellm
+        container: bifrost
 
 - Automation:
     - n8n:

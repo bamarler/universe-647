@@ -1,13 +1,13 @@
 # Universe 647 — Phase 4: Sophon (AI Brain)
-# 4 containers (3 active + 1 dormant)
-# Requires: core stack running (PostgreSQL, Caddy, networks)
+# sophon (backend) + bifrost (LLM gateway) + open-webui/mcpo (legacy, retiring)
+# + ollama (dormant). Requires: core stack running (PostgreSQL, Caddy, networks)
 
 services:
 
   # ==========================================================================
   # Sophon — the second-brain backend (Go)
   # Tasks, notes, supertags, hybrid search (pgvector + FTS), retrieval-only AI.
-  # Boots even if LiteLLM is down (semantic features degrade gracefully).
+  # Boots even if the gateway is down (semantic features degrade gracefully).
   # Reachable only via Caddy (tomoko.{DOMAIN}/api); trusts Remote-User header.
   # ==========================================================================
   sophon:
@@ -20,10 +20,10 @@ services:
     read_only: true
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sophon?sslmode=disable
-      LITELLM_BASE_URL: http://litellm:4000/v1
-      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LLM_BASE_URL: http://bifrost:8080/openai/v1
+      LLM_API_KEY: ${BIFROST_VK}
     networks:
-      - ai_net   # LiteLLM (embeddings + intent parsing)
+      - ai_net   # Bifrost (embeddings + intent parsing)
       - app_net  # Caddy reverse proxy
       - db_net   # PostgreSQL (sophon database)
     mem_limit: 128m
@@ -52,16 +52,16 @@ services:
     pids_limit: 128
 
   # ==========================================================================
-  # LiteLLM — LLM API gateway with three-tier model routing
-  # tool-caller → Gemini 2.5 Flash (cheapest reliable function-calling)
-  # smart → Claude Haiku 4.5 (best reasoning-per-dollar)
-  # local → Ollama (dormant, commented out in config)
+  # Bifrost — LLM API gateway (Go; replaced LiteLLM, which idled at ~956MiB)
+  # Aliases in bifrost/config.json: tool-caller → Gemini 3.1 Flash-Lite,
+  # smart → Claude Haiku 4.5. Inbound auth: virtual key (BIFROST_VK).
+  # Clients use http://bifrost:8080/openai/v1 with the VK as Bearer token.
+  # PIN EXACT VERSIONS: multiple releases/week, translation-layer regressions
+  # have shipped before — smoke-test tool calls + embeddings after bumps.
   # ==========================================================================
-  litellm:
-    # Newest stable line as of 2026-06 (1.88.0 + bugfix patch; 1.89 is still
-    # RC). The previous pin (v1.63, 2025-03) predated the Gemini 3.x family.
-    image: ghcr.io/berriai/litellm:v1.88.1
-    container_name: litellm
+  bifrost:
+    image: maximhq/bifrost:v1.5.11
+    container_name: bifrost
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
@@ -69,33 +69,38 @@ services:
     tmpfs:
       - /tmp
     environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8080"
+      LOG_LEVEL: info
+      LOG_STYLE: json
+      GOMEMLIMIT: 450MiB
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      BIFROST_VK: ${BIFROST_VK}
+      BIFROST_ENCRYPTION_KEY: ${BIFROST_ENCRYPTION_KEY}
+      BIFROST_ADMIN_USERNAME: ${BIFROST_ADMIN_USERNAME}
+      BIFROST_ADMIN_PASSWORD: ${BIFROST_ADMIN_PASSWORD}
     volumes:
-      - ./litellm/config.yaml:/app/config.yaml:ro
-    command: ["--config", "/app/config.yaml"]
+      # config.db (governance/virtual-key store) lives in the named volume;
+      # config.json entities re-seed it by content hash on every restart
+      - bifrost_data:/app/data
+      - ./bifrost/config.json:/app/data/config.json:ro
     networks:
       - ai_net
     healthcheck:
-      # /health requires an API key (always 401s); liveliness is public.
-      # busybox wget: the v1.88 alpine image ships no curl.
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:4000/health/liveliness"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
-    # v1.88 imports blow well past the old 200m cap — the container was
-    # OOM-killed mid-startup before its first (buffered) log line flushed
-    mem_limit: 1g
+      start_period: 15s
+    mem_limit: 512m
     cpus: "1.0"
     pids_limit: 128
 
   # ==========================================================================
-  # Open WebUI — Primary chat interface (PWA)
+  # Open WebUI — Legacy chat interface (retiring in the cleanup phase)
   # SECURITY: Pin >= v0.6.35 (CVE-2025-64496 — code injection)
-  # Connects to LiteLLM for model routing, PostgreSQL for data storage
-  # MCP tools provided by mcpo, configured in admin panel after first boot
+  # Connects to Bifrost for model routing, PostgreSQL for data storage
   # ==========================================================================
   open-webui:
     image: ghcr.io/open-webui/open-webui:v0.6.35
@@ -110,8 +115,8 @@ services:
       - SETUID
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/open_webui
-      OPENAI_API_BASE_URL: http://litellm:4000/v1
-      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      OPENAI_API_BASE_URL: http://bifrost:8080/openai/v1
+      OPENAI_API_KEY: ${BIFROST_VK}
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       ENABLE_SIGNUP: "false"
       DEFAULT_USER_ROLE: admin
@@ -123,7 +128,7 @@ services:
       - app_net
       - db_net
     depends_on:
-      litellm:
+      bifrost:
         condition: service_healthy
     mem_limit: 500m
     cpus: "1.0"
@@ -161,6 +166,9 @@ services:
     mem_limit: 256m
     cpus: "0.5"
     pids_limit: 128
+
+volumes:
+  bifrost_data:
 
 # ==============================================================================
 # Networks (defined in stacks/core/compose.yaml)

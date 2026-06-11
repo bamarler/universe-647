@@ -1,4 +1,4 @@
-// Package llm is the narrow seam to the LiteLLM gateway. The AI is a
+// Package llm is the narrow seam to the LLM gateway (Bifrost). The AI is a
 // retrieval-only middleman: it embeds text and parses commands into
 // structured intents — it never produces prose shown to the user.
 package llm
