@@ -71,7 +71,7 @@ Read `agent-docs/` BEFORE starting any task. These are gitignored AI context doc
 
 **Database**: PostgreSQL is shared by Authelia, Open WebUI, n8n, Vikunja, Nextcloud. Monica uses its own MariaDB sidecar.
 
-**Security**: Three independent layers — (1) Tailscale + Tailnet Lock + Device Approval, (2) Authelia + mandatory WebAuthn FIDO2, (3) Application-level authorization + per-model MCP tool assignment in Open WebUI. CrowdSec for intrusion detection. Docker Socket Proxy (Tecnativa) — no container ever mounts `/var/run/docker.sock` directly.
+**Security**: Three independent layers — (1) Tailscale + Device Approval (Tailnet Lock OFF — see docs/REMOTE-ACCESS.md), (2) Authelia + mandatory WebAuthn FIDO2, (3) Application-level authorization. CrowdSec for intrusion detection. Docker Socket Proxy (Tecnativa) — no container ever mounts `/var/run/docker.sock` directly.
 
 **Port binding rule**: Only Caddy (`127.0.0.1:443`), AdGuard Home (`0.0.0.0:53`), and Tailscale (`network_mode: host`) bind to the host. All other containers have no `ports:` directive.
 

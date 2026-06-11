@@ -45,7 +45,10 @@ services:
 
   # ==========================================================================
   # Tailscale — WireGuard mesh VPN
-  # Only way into the network. Device Approval + Tailnet Lock required.
+  # Only way into the network. Device Approval required (Tailnet Lock is OFF).
+  # ⚠ DEPRECATED: migrating to host-level tailscaled so Docker/compose can
+  # never sever remote access again (see docs/REMOTE-ACCESS.md, layer 1).
+  # Remove this service only AFTER the host cutover is verified.
   # ==========================================================================
   tailscale:
     image: tailscale/tailscale:v1.94.2

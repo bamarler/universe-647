@@ -1,0 +1,9 @@
+# Deadman watchdog: restarts tailscaled (then reboots) if the tailnet
+# connection stays down. Installed per docs/REMOTE-ACCESS.md.
+[Unit]
+Description=Tailscale deadman watchdog check
+# Intentionally NO dependency on docker — this guards the access path.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tailscale-watchdog.sh
