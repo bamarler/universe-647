@@ -1,32 +1,68 @@
-:root {
-  --bg: #0b0d10;
-  --surface: #14181d;
-  --surface-2: #1b2129;
-  --border: #2a323d;
-  --fg: #e8edf2;
-  --fg-muted: #76818e;
-  --accent: #7dd3fc;
-  --accent-2: #c4b5fd;
-  --danger: #f87171;
+@import 'tailwindcss';
 
-  color-scheme: dark;
+/* ============================================================================
+   Tomoko design tokens — THE single source of truth for the theme
+   ("Sophon Unfolding": deep-space dark, ember orange, soft glow, glass).
+
+   Every color, font, and effect in the app derives from these tokens via
+   Tailwind utilities (bg-space, text-ember, shadow-glow, font-sans, …).
+   Never hardcode hex values or font names in components — change them here.
+   ========================================================================== */
+@theme {
+  /* Backgrounds */
+  --color-space: #0a0e17; /* app background (deep near-black space) */
+  --color-space-deep: #060912; /* recessed areas, gradients */
+
+  /* Surfaces (cards/bars use these with /alpha + backdrop-blur for glass) */
+  --color-surface: #101522;
+  --color-surface-2: #161d2e;
+  --color-line: #233048; /* borders, separators */
+
+  /* Text */
+  --color-fg: #e8ebf2;
+  --color-fg-muted: #6d7890;
+
+  /* Accent — the ember orange sampled from the Tomoko mark. No AI blue. */
+  --color-ember: #eb550e;
+  --color-ember-bright: #ff7a2f; /* hover/active, highlights */
+  --color-ember-dim: #8a3409; /* pressed, subtle fills */
+
+  --color-danger: #f87171;
+
+  /* Typography — FantasqueSansM Nerd Font when installed locally,
+     bundled TypoPRO Fantasque web font otherwise. Used across the board. */
+  --font-sans:
+    'FantasqueSansM Nerd Font', 'TypoPRO Fantasque Sans Mono',
+    'Fantasque Sans Mono', ui-monospace, monospace;
+  --font-mono:
+    'FantasqueSansM Nerd Font', 'TypoPRO Fantasque Sans Mono',
+    'Fantasque Sans Mono', ui-monospace, monospace;
+
+  /* Glow shadows (box-shadow utilities: shadow-glow / shadow-glow-sm) */
+  --shadow-glow: 0 0 18px --alpha(var(--color-ember) / 30%);
+  --shadow-glow-sm: 0 0 10px --alpha(var(--color-ember) / 25%);
 }
 
-* {
-  box-sizing: border-box;
+/* Composable effect utilities (keep effects token-driven, not ad hoc) */
+@utility glass {
+  background: --alpha(var(--color-surface) / 65%);
+  backdrop-filter: blur(14px);
+  border: 1px solid --alpha(var(--color-line) / 60%);
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
+@utility glow-drop {
+  /* For transparent images/SVGs (logo, icons) */
+  filter: drop-shadow(0 0 7px --alpha(var(--color-ember) / 55%));
+}
+
+@utility glow-text {
+  text-shadow: 0 0 10px --alpha(var(--color-ember) / 45%);
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-space text-fg font-sans antialiased;
+    margin: 0;
+  }
 }

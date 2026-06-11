@@ -12,7 +12,11 @@
   }
 </script>
 
-<form class="bar" onsubmit={submit}>
+<form
+  class="from-space fixed inset-x-0 bottom-0 bg-gradient-to-t from-65% to-transparent
+         px-4 pt-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+  onsubmit={submit}
+>
   <input
     type="text"
     bind:value
@@ -21,35 +25,8 @@
     autocomplete="off"
     autocapitalize="off"
     spellcheck="false"
+    class="glass placeholder:text-fg-muted mx-auto block w-full max-w-2xl rounded-xl
+           px-4 py-3.5 text-base outline-none transition-shadow
+           focus:border-ember/60 focus:shadow-glow"
   />
 </form>
-
-<style>
-  .bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
-    background: linear-gradient(transparent, var(--bg) 35%);
-  }
-  input {
-    display: block;
-    width: 100%;
-    max-width: 40rem;
-    margin: 0 auto;
-    padding: 0.8rem 1rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    color: var(--fg);
-    font-size: 1rem;
-    outline: none;
-  }
-  input:focus {
-    border-color: var(--accent);
-  }
-  input::placeholder {
-    color: var(--fg-muted);
-  }
-</style>
