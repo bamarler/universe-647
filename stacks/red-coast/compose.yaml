@@ -1,0 +1,186 @@
+# ==============================================================================
+# Universe 647 — red-coast (movie/TV streaming)
+#
+# Jellyseerr (browse/request) -> Radarr/Sonarr (acquire) -> Prowlarr (indexers)
+# -> qBittorrent (download, tunneled through Gluetun/NordVPN) -> hardlinked into
+# the library -> Jellyfin (watch). Letterboxd sync via a Jellyfin plugin.
+#
+# Networks: app_net (Caddy ingress + inter-service, internal) and media_net
+# (outbound to trackers/metadata).
+#
+# GLUETUN GOTCHA: qBittorrent runs inside Gluetun's network namespace
+# (network_mode: service:gluetun), so it has no networks/ports of its own and is
+# reached as `gluetun:8080` — from Caddy AND Radarr/Sonarr's download client.
+# ==============================================================================
+
+services:
+  # --- Watch UI + hardware transcode -----------------------------------------
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:10.11.11
+    container_name: jellyfin
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]  # LSIO init -> PUID 1000
+    # ponytail: LSIO/s6 images fight read_only:true — omitted (matches monica)
+    devices:
+      - /dev/dri:/dev/dri  # Intel QuickSync (UHD 630) HW transcode
+    group_add:
+      - "${RENDER_GID:-989}"  # host render GID — verify: getent group render
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ}
+    volumes:
+      - /mnt/data/jellyfin:/config
+      - /mnt/data/media:/media:ro  # read-only: Jellyfin only plays the library
+    networks:
+      - app_net    # Caddy ingress
+      - media_net  # TMDb/artwork metadata outbound
+    mem_limit: 1g
+    cpus: "2.0"
+    pids_limit: 512  # ffmpeg spawns helpers during transcode
+
+  # --- Browse-all-of-TMDb + Request button -----------------------------------
+  jellyseerr:
+    image: fallenbagel/jellyseerr:2.7.3
+    container_name: jellyseerr
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      TZ: ${TZ}
+      LOG_LEVEL: info
+    volumes:
+      - /mnt/data/jellyseerr:/app/config
+    networks:
+      - app_net    # Caddy + reach jellyfin/radarr/sonarr
+      - media_net  # TMDb discovery outbound
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # --- Movie acquisition ------------------------------------------------------
+  radarr:
+    image: lscr.io/linuxserver/radarr:6.2.1
+    container_name: radarr
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]  # LSIO init -> PUID 1000
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ}
+    volumes:
+      - /mnt/data/radarr:/config
+      - /mnt/data/media:/media  # whole tree so downloads/ -> movies/ hardlink
+    networks:
+      - app_net    # Caddy + reach prowlarr/gluetun(qbit)
+      - media_net  # TMDb metadata outbound
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 256
+
+  # --- TV acquisition ---------------------------------------------------------
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:4.0.17
+    container_name: sonarr
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]  # LSIO init -> PUID 1000
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ}
+    volumes:
+      - /mnt/data/sonarr:/config
+      - /mnt/data/media:/media  # whole tree so downloads/ -> tv/ hardlink
+    networks:
+      - app_net
+      - media_net
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 256
+
+  # --- Indexer/tracker manager ------------------------------------------------
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:2.4.0
+    container_name: prowlarr
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]  # LSIO init -> PUID 1000
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ}
+    volumes:
+      - /mnt/data/prowlarr:/config
+    networks:
+      - app_net    # Caddy + sync to radarr/sonarr
+      - media_net  # reach public trackers
+    mem_limit: 128m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # --- VPN tunnel + kill switch (NordVPN WireGuard) ---------------------------
+  gluetun:
+    # Gluetun ships no semver releases — digest-pinned like mcpo (see CLAUDE.md)
+    image: qmcgaw/gluetun:latest@sha256:0e999c910d8077458ffbd869acfd9faa2a49decbca02afec6370277854587b3e
+    container_name: gluetun
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${NORD_WG_KEY}
+      SERVER_COUNTRIES: ${NORD_COUNTRIES:-Netherlands}
+      TZ: ${TZ}
+      # Open qBittorrent's WebUI port through the kill-switch firewall so Caddy
+      # and Radarr/Sonarr (app_net) can reach it. If cross-subnet access fails,
+      # also set FIREWALL_OUTBOUND_SUBNETS to the app_net/media_net CIDRs.
+      FIREWALL_INPUT_PORTS: "8080"
+    expose:
+      - "8080"  # qBittorrent WebUI, served from this namespace
+    networks:
+      - app_net    # Caddy + Radarr/Sonarr reach qbit via gluetun:8080
+      - media_net  # reach NordVPN servers
+    mem_limit: 64m
+    cpus: "0.5"
+    pids_limit: 128
+
+  # --- Torrent client (lives inside gluetun's namespace) ----------------------
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:5.2.2
+    container_name: qbittorrent
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]  # LSIO init -> PUID 1000
+    network_mode: "service:gluetun"  # all traffic egresses through the VPN
+    depends_on:
+      gluetun:
+        condition: service_started  # kill switch protects even before tunnel up
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ}
+      WEBUI_PORT: "8080"
+    volumes:
+      - /mnt/data/qbittorrent:/config
+      - /mnt/data/media:/media  # save to /media/downloads (same fs as library)
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 256
+
+networks:
+  app_net:
+    external: true
+  media_net:
+    external: true
