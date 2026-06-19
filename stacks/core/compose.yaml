@@ -397,7 +397,7 @@ volumes:
   authelia_redis_data:
 
 # ==============================================================================
-# Networks — ALL 8 defined here, referenced as external: true in other stacks
+# Networks — ALL 10 defined here, referenced as external: true in other stacks
 # ==============================================================================
 networks:
   proxy_net:
@@ -423,3 +423,5 @@ networks:
   authelia_redis_net:
     name: authelia_redis_net
     internal: true
+  media_net:
+    name: media_net  # No internal: true — red-coast needs outbound for trackers/metadata
