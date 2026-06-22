@@ -77,7 +77,7 @@ services:
 
   # ==========================================================================
   # PostgreSQL — Shared relational database
-  # Used by Authelia, Open WebUI, n8n, Vikunja, Nextcloud
+  # Used by Authelia, n8n, Nextcloud, sophon
   # ==========================================================================
   postgres:
     # pgvector build of postgres 16 (official postgres image lacks the extension).
@@ -186,7 +186,7 @@ services:
   # ==========================================================================
   # Authelia Redis — persistent session store
   # Sessions survive Authelia restarts; AOF persistence survives redis restarts.
-  # Isolated sidecar network (same pattern as monica-db, nextcloud-redis).
+  # Isolated sidecar network (same pattern as nextcloud-redis).
   # ==========================================================================
   authelia-redis:
     image: redis:7.4-alpine
@@ -230,7 +230,7 @@ services:
       - /srv/u647/uptime-kuma:/app/data
     networks:
       - monitoring_net
-      - app_net  # Required: HTTP health checks for homepage, ntfy, vikunja, etc.
+      - app_net  # Required: HTTP health checks for homepage, ntfy, etc.
     mem_limit: 128m
     cpus: "0.5"
     pids_limit: 128

@@ -15,7 +15,5 @@ create_database() {
 
 create_database authelia
 create_database n8n
-create_database vikunja
-create_database open_webui
 
 echo "All databases created successfully"

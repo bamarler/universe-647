@@ -98,32 +98,6 @@ notifier:
   #   sender: "Universe 647 <your-email@gmail.com>"
   #   subject: "[Universe 647] {title}"
 
-# OpenID Connect provider — SSO for Vikunja (and future OIDC clients)
-identity_providers:
-  oidc:
-    jwks:
-      - key: {{ secret "/config/jwks-rsa.pem" | mindent 10 "|" | msquote }}
-        algorithm: 'RS256'
-        use: 'sig'
-    lifespans:
-      access_token: '1h'
-      authorize_code: '1m'
-      id_token: '1h'
-      refresh_token: '1M'  # let OIDC clients refresh silently instead of re-prompting
-    clients:
-      - client_id: 'vikunja'
-        client_name: 'Vikunja'
-        client_secret: '$pbkdf2-sha512$310000$l9vpMwilxsZHWDwohzRiiw$tEojUO3m4XVcGTFGPCA8iYpRVTe5uGczaL4.lL4ONQW122WW/HGwhmTOb1CT5Q8yoZeN4AntgMEtC1k71bLKOQ'
-        public: false
-        authorization_policy: 'two_factor'
-        redirect_uris:
-          - 'https://tasks.{{ env "DOMAIN" }}/auth/openid/authelia'
-        scopes:
-          - 'openid'
-          - 'profile'
-          - 'email'
-        response_types:
-          - 'code'
-        grant_types:
-          - 'authorization_code'
-        token_endpoint_auth_method: 'client_secret_basic'
+# OIDC identity provider removed with Vikunja (its only client). sophon/tomoko
+# use Caddy forward-auth (Remote-User header), not OIDC. Re-add an
+# identity_providers.oidc block here if a future service needs OIDC SSO.

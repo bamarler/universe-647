@@ -57,23 +57,6 @@
         container: nut
 
 - Personal Data:
-    - Monica:
-        icon: monica.svg
-        href: https://monica.{{HOMEPAGE_VAR_DOMAIN}}
-        description: Personal CRM
-        server: socket-proxy
-        container: monica
-    - MariaDB:
-        icon: mariadb.svg
-        description: Monica Database
-        server: socket-proxy
-        container: monica-db
-    - Vikunja:
-        icon: vikunja.svg
-        href: https://tasks.{{HOMEPAGE_VAR_DOMAIN}}
-        description: Task Manager
-        server: socket-proxy
-        container: vikunja
     - Baikal:
         icon: baikal.svg
         href: https://dav.{{HOMEPAGE_VAR_DOMAIN}}
@@ -112,17 +95,3 @@
         description: Push Notifications
         server: socket-proxy
         container: ntfy
-
-# Phase 4: Sophon — uncomment when stacks/sophon is deployed
-# - AI Assistant:
-#     - Open WebUI:
-#         icon: openwebui.svg
-#         href: https://chat.{{HOMEPAGE_VAR_DOMAIN}}
-#         description: Chat Interface
-#         server: socket-proxy
-#         container: open-webui
-#     - Ollama:
-#         icon: ollama.svg
-#         description: Local LLM
-#         server: socket-proxy
-#         container: ollama

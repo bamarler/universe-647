@@ -69,19 +69,9 @@ glances.{$DOMAIN} {
 # Phase 3: Data Layer
 # ==============================================================================
 
-monica.{$DOMAIN} {
-	import authelia
-	reverse_proxy monica:80
-}
-
 dav.{$DOMAIN} {
 	import authelia
 	reverse_proxy baikal:80
-}
-
-tasks.{$DOMAIN} {
-	import authelia
-	reverse_proxy vikunja:3456
 }
 
 ntfy.{$DOMAIN} {
@@ -97,11 +87,6 @@ n8n.{$DOMAIN} {
 # ==============================================================================
 # Phase 4: Sophon
 # ==============================================================================
-
-chat.{$DOMAIN} {
-	import authelia
-	reverse_proxy open-webui:8080
-}
 
 # Tomoko (second-brain UI) + Sophon API — same origin so the PWA and
 # Authelia session cookie just work
