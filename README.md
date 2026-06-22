@@ -1,6 +1,6 @@
 # Universe 647
 
-An AI-powered personal operating system running on an HP EliteDesk 800 G6 Mini. Self-hosted CRM, task management, workflow automation, local LLM inference, and smart home control all unified through a single chat interface via MCP.
+An AI-powered personal operating system running on an HP EliteDesk 800 G6 Mini. A self-hosted second brain (notes, tasks, semantic search), workflow automation, file sync, and movie/TV streaming — fronted by a custom Svelte PWA and backed by cloud-LLM routing. Local LLM inference and smart-home control are planned.
 
 *Named after the pocket universe in Liu Cixin's Remembrance of Earth's Past trilogy; a self-contained world preserving the memory of civilization, designed to outlast everything.*
 
@@ -20,15 +20,16 @@ Before cloning this repo, you need:
 | HP EliteDesk 800 G6 Mini | — | i7-10700T, 16GB+ RAM, 250GB + 500GB NVMe |
 | UPS | Connected via USB | Graceful shutdown on power loss |
 | 2x FIDO2 security keys (NFC) | Keychain + safe | WebAuthn 2FA for all services |
-| Cloudflare account | cloudflare.com | DNS, HTTPS certificates, R2 backup storage |
-| Tailscale account | tailscale.com | Mesh VPN, Device Approval, Tailnet Lock |
+| Cloudflare account | cloudflare.com | DNS, HTTPS certificates |
+| Backblaze B2 account | backblaze.com | Offsite encrypted restic backups (S3-compatible) |
+| Tailscale account | tailscale.com | Mesh VPN, Device Approval (Tailnet Lock currently off) |
 | 1Password (or equivalent) | — | Stores age private key, restic password, API keys |
 | Google Cloud Podcast API | cloud.google.com | Optional: audio morning briefings |
 
 ## Quick Start
 
 ```bash
-# 1. Hardware setup (see docs/SETUP.md)
+# 1. Hardware setup
 #    BIOS → USB boot, disable Secure Boot, enable VT-x/VT-d
 #    Install Ubuntu Server 24.04 on 250GB NVMe
 #    Format 500GB NVMe as ext4, mount at /mnt/data
@@ -43,7 +44,7 @@ cd universe-647
 
 # 4. Initialize restic backup repos
 restic -r /mnt/data/restic-repo init
-restic -r s3:your-r2-endpoint/u647-backup init
+restic -r s3:s3.us-west-000.backblazeb2.com/your-bucket init
 
 # 5. Decrypt secrets and start core infrastructure
 make decrypt
@@ -62,14 +63,16 @@ make backup
 
 | Phase | Stack | Containers | What It Unlocks |
 |:-----:|-------|:----------:|-----------------|
-| 2 | `core` | 10 | Reverse proxy, VPN, SSO + 2FA, monitoring, DNS blocking, intrusion detection, UPS shutdown, backups |
-| 3 | `data` | 5 | CRM, contacts sync, task management, workflow automation, push notifications |
-| 4 | `sophon` | 4 | Local LLM, cloud LLM routing, chat interface, MCP tool gateway, morning briefings |
-| 5 | `storage` | 2 | Self-hosted files, semantic search, Obsidian sync |
-| 6 | `voice` | 2 | Server-side speech-to-text and text-to-speech |
-| 7 | `smarthome` | 3 | Zigbee device control, smart home automations via AI |
+| 2 | `core` | 13 | Reverse proxy, VPN, SSO + 2FA, monitoring, DNS blocking, intrusion detection, UPS shutdown, backups |
+| 3 | `data` | 3 | CalDAV/CardDAV (Baïkal), workflow automation (n8n), push notifications (Ntfy) |
+| 4 | `sophon` | 3 | Second-brain backend (Sophon), cloud-LLM routing (Bifrost), dormant local LLM (Ollama) |
+| 4 | `tomoko` | 1 | Svelte PWA frontend for the second brain |
+| 5 | `storage` | 2 | Self-hosted files (Nextcloud + Redis), semantic search |
+| 6 | `voice` | *(planned)* | Server-side speech-to-text and text-to-speech — not yet deployed |
+| 7 | `smarthome` | *(planned)* | Zigbee device control, smart-home automations — not yet deployed |
+| 8 | `red-coast` | 7 | Movie/TV streaming: Jellyfin + Radarr/Sonarr/Prowlarr + qBittorrent behind a VPN |
 
-**19 containers for MVP (Phases 2–4). 25 total across all phases.**
+**29 containers across 6 active stacks (core, data, sophon, tomoko, storage, red-coast). `voice` + `smarthome` are scaffolded for later.**
 
 Start each phase with `make up STACK=<name>` once the previous phase is stable.
 
@@ -86,7 +89,7 @@ Run `make help` for the full list. Most-used commands:
 | `make logs STACK=sophon` | Tail logs for a stack |
 | `make decrypt` | Decrypt secrets (run before `make up`) |
 | `make encrypt` | Encrypt secrets (run before `git commit`) |
-| `make backup` | Full backup: local + Cloudflare R2 |
+| `make backup` | Full backup: local + Backblaze B2 |
 | `make backup-verify` | Test restore to /tmp |
 | `make db-dump` | Manual PostgreSQL dump |
 | `make trivy-scan` | Scan images for vulnerabilities |
@@ -106,41 +109,38 @@ universe-647/
 ├── .sops.yaml                  # SOPS encryption rules
 ├── stacks/
 │   ├── core/                   # Phase 2: Caddy, Tailscale, PostgreSQL, Authelia, etc.
-│   ├── data/                   # Phase 3: Monica, Baïkal, n8n, Vikunja, Ntfy
-│   ├── sophon/                 # Phase 4: Ollama (dormant), LiteLLM, Open WebUI, mcpo
+│   ├── data/                   # Phase 3: Baïkal, n8n, Ntfy
+│   ├── sophon/                 # Phase 4: Sophon (Go backend), Bifrost gateway, Ollama (dormant)
+│   ├── tomoko/                 # Phase 4: Svelte PWA frontend for the second brain
 │   ├── storage/                # Phase 5: Nextcloud + Redis
-│   ├── voice/                  # Phase 6: Wyoming Whisper + Piper
-│   └── smarthome/              # Phase 7: Home Assistant, Mosquitto, Zigbee2MQTT
+│   ├── red-coast/              # Phase 8: Jellyfin + Radarr/Sonarr/Prowlarr + qBittorrent/VPN
+│   ├── voice/                  # Phase 6 (planned, scaffold only): Wyoming Whisper + Piper
+│   └── smarthome/              # Phase 7 (planned, scaffold only): Home Assistant, Mosquitto, Zigbee2MQTT
 ├── scripts/
 │   ├── setup.sh                # First-time server setup
+│   ├── generate-secrets.sh     # Generate per-stack .env secrets
 │   ├── backup.sh               # Nightly restic backup
 │   ├── restore.sh              # Restore from backup
 │   ├── revoke-device.sh        # Emergency device revocation
 │   └── trivy-scan.sh           # Image vulnerability scanning
-├── mcp-servers/                # Custom MCP wrappers (Monica, Vikunja)
 ├── mobile/                     # iOS Shortcuts exports
+├── agent-docs/                 # gitignored AI context (architecture, networking, phases, containers, monorepo)
 └── docs/
-    ├── SETUP.md                # Hardware + OS installation
-    ├── SECURITY.md             # Three-layer auth, Docker hardening
-    ├── NETWORKING.md           # Tailscale, ACLs, Cloudflare
     ├── NETWORK-OVERVIEW.md     # Container communication diagram reference
-    ├── BACKUP.md               # 3-2-1 strategy, restic usage
+    ├── REMOTE-ACCESS.md        # Tailscale remote-access runbook
     ├── DISASTER-RECOVERY.md    # Full rebuild runbook
-    ├── DEVICE-ONBOARDING.md    # Add/revoke devices
-    ├── SECRETS.md              # SOPS + age usage
-    ├── STORAGE.md              # NVMe layout, why not RAID
-    └── MOBILE.md               # iOS Shortcuts + PWA setup
+    └── RESEARCH-SECOND-BRAIN.md # sophon/tomoko design research
 ```
 
 ## Security
 
 Three independent layers — compromising any single layer is insufficient for access:
 
-1. **Tailscale + Tailnet Lock + Device Approval** — Services are invisible to the public internet. New devices require admin approval and cryptographic signing before any traffic flows.
+1. **Tailscale + Device Approval** — Services are invisible to the public internet; new devices require admin approval. (Tailnet Lock is currently *off* — see [docs/REMOTE-ACCESS.md](docs/REMOTE-ACCESS.md) for the rationale.)
 2. **Authelia + Mandatory WebAuthn** — Every request requires password + physical FIDO2 security key. Phishing-resistant by design.
-3. **Application-Level Authorization** — Per-model MCP tool assignment in Open WebUI controls which tools each model can use. Docker containers run with dropped capabilities, read-only filesystems, and resource limits.
+3. **Application-Level Authorization** — Sophon's API trusts Caddy's `Remote-User` header; every container runs with dropped capabilities, read-only filesystems where possible, and CPU/memory/PID limits.
 
-CrowdSec provides intrusion detection at the reverse proxy layer. Network segmentation into 8 trust-tiered Docker networks prevents lateral movement between containers.
+CrowdSec provides intrusion detection at the reverse proxy layer. Network segmentation into 11 trust-tiered Docker networks (10 in `core` + a `nextcloud_redis_net` sidecar) prevents lateral movement between containers.
 
 ## Backup
 
@@ -148,6 +148,6 @@ Three copies, two media, one offsite:
 
 1. **Live data** on NVMe #2
 2. **Local restic repo** on NVMe #2 (encrypted, deduplicated, point-in-time snapshots)
-3. **Cloudflare R2** offsite (encrypted, zero egress fees)
+3. **Backblaze B2** offsite (encrypted, restic S3-compatible; the red-coast media library is excluded — it's re-acquirable)
 
 Nightly at 2 AM via cron. Healthchecks.io alerts on missed backups. Monthly restore test. Full disaster recovery in 2–4 hours on any replacement hardware — see [docs/DISASTER-RECOVERY.md](docs/DISASTER-RECOVERY.md).
