@@ -1,94 +1,12 @@
 # Universe 647 — Phase 3: Personal Data Layer
-# 5 services + MariaDB sidecar (6 containers total)
+# 3 services (baikal, n8n, ntfy)
 # Requires: core stack running (PostgreSQL, Caddy, Authelia, networks)
 
 services:
 
   # ==========================================================================
-  # Monica CRM — Personal relationship manager
-  # Contacts, relationships, interactions, birthdays, gifts
-  # Uses its own MariaDB sidecar, NOT shared PostgreSQL
-  # ==========================================================================
-  monica:
-    image: monica:4-apache
-    container_name: monica
-    restart: unless-stopped
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
-      - NET_BIND_SERVICE
-    environment:
-      APP_KEY: ${MONICA_APP_KEY}
-      APP_ENV: production
-      APP_DEBUG: "false"
-      APP_URL: https://monica.${DOMAIN}
-      DB_CONNECTION: mysql
-      DB_HOST: monica-db
-      DB_PORT: "3306"
-      DB_DATABASE: monica
-      DB_USERNAME: monica
-      DB_PASSWORD: ${MONICA_DB_PASSWORD}
-      MAIL_MAILER: smtp
-      MAIL_HOST: ${SMTP_HOST}
-      MAIL_PORT: ${SMTP_PORT}
-      MAIL_USERNAME: ${SMTP_USERNAME}
-      MAIL_PASSWORD: ${SMTP_PASSWORD}
-      MAIL_ENCRYPTION: tls
-      MAIL_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
-      MAIL_FROM_NAME: Monica CRM
-    volumes:
-      - /mnt/data/monica:/var/www/html/storage
-    networks:
-      - app_net
-      - monica_net
-    depends_on:
-      monica-db:
-        condition: service_healthy
-    mem_limit: 400m
-    cpus: "1.0"
-    pids_limit: 128
-
-  # ==========================================================================
-  # MariaDB — Private database for Monica
-  # Isolated on monica_net, not shared with other services
-  # ==========================================================================
-  monica-db:
-    image: mariadb:11.8
-    container_name: monica-db
-    restart: unless-stopped
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MONICA_DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: monica
-      MYSQL_USER: monica
-      MYSQL_PASSWORD: ${MONICA_DB_PASSWORD}
-    volumes:
-      - /mnt/data/monica-db:/var/lib/mysql
-    networks:
-      - monica_net
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    mem_limit: 256m
-    cpus: "0.5"
-    pids_limit: 128
-
-  # ==========================================================================
-  # Baikal — Lightweight CalDAV/CardDAV server
-  # n8n syncs Monica contacts → Baikal → iOS native Contacts via CardDAV
+  # Baikal — Lightweight CalDAV/CardDAV server (iOS sync)
+  # NOTE: was the Monica→iOS contacts bridge; orphaned now that Monica is removed.
   # ==========================================================================
   baikal:
     image: ckulka/baikal:0.10.1-nginx
@@ -162,43 +80,6 @@ services:
     pids_limit: 256
 
   # ==========================================================================
-  # Vikunja — Task manager with CalDAV
-  # REST API + CalDAV sync to iOS Reminders
-  # Single source of truth for all tasks
-  # ==========================================================================
-  vikunja:
-    image: vikunja/vikunja:0.24.6
-    container_name: vikunja
-    restart: unless-stopped
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    environment:
-      VIKUNJA_SERVICE_PUBLICURL: https://tasks.${DOMAIN}
-      VIKUNJA_SERVICE_TIMEZONE: ${TZ}
-      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
-      VIKUNJA_SERVICE_ENABLECALDAV: "true"
-      # OpenID Connect — Authelia SSO (auto-creates user on first login)
-      VIKUNJA_AUTH_LOCAL_ENABLED: "false"
-      VIKUNJA_AUTH_OPENID_ENABLED: "true"
-      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_NAME: Authelia
-      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_AUTHURL: https://auth.${DOMAIN}
-      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTID: vikunja
-      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTSECRET: ${VIKUNJA_OIDC_SECRET}
-      VIKUNJA_DATABASE_TYPE: postgres
-      VIKUNJA_DATABASE_HOST: postgres
-      VIKUNJA_DATABASE_USER: ${POSTGRES_USER}
-      VIKUNJA_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
-      VIKUNJA_DATABASE_DATABASE: vikunja
-    volumes:
-      - /mnt/data/vikunja:/app/vikunja/files
-    networks:
-      - app_net
-      - db_net
-    mem_limit: 256m
-    cpus: "0.5"
-    pids_limit: 128
-
-  # ==========================================================================
   # Ntfy — Push notification server
   # Central hub: Uptime Kuma alerts, CrowdSec detections, urgent emails,
   # morning briefings, birthday reminders, MCP confirmations
@@ -238,7 +119,3 @@ networks:
     external: true
   automation_net:
     external: true  # Defined in stacks/core/compose.yaml
-  # Private network for Monica <-> MariaDB only
-  monica_net:
-    name: monica_net
-    internal: true
