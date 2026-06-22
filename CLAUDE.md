@@ -5,8 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What This Is
 
 Self-hosted AI-powered personal OS on an HP EliteDesk 800 G6 Mini (i7-10700T, 16GB RAM, dual NVMe).
-25 containers across 6 stacks (core, data, sophon, storage, voice, smarthome) deployed in 7 phases.
-The unified AI agent is **Sophon** — Open WebUI connected to all services via mcpo proxy and native MCP.
+29 containers across 6 active stacks (core, data, sophon, tomoko, storage, red-coast).
+The `voice` and `smarthome` stacks are scaffolded (`.gitkeep` only) but not yet deployed.
+The second brain is **Sophon** (Go backend) + **Tomoko** (Svelte PWA frontend), with the
+**Bifrost** gateway routing LLM calls. (The legacy Open WebUI + mcpo layer has been retired.)
 
 ## Shell Rules
 
@@ -46,7 +48,7 @@ yamllint stacks/<name>/compose.yaml                    # Lint YAML
 shellcheck scripts/<name>.sh                           # Lint bash scripts
 
 # Backup & Security
-make backup                     # Full backup: local restic + Cloudflare R2
+make backup                     # Full backup: local restic + Backblaze B2
 make backup-verify              # Test restore to /tmp
 make trivy-scan                 # Scan running images for vulnerabilities
 make revoke-device DEVICE=nodekey:abc123  # Emergency device revocation
@@ -55,7 +57,7 @@ make revoke-device DEVICE=nodekey:abc123  # Emergency device revocation
 ## Key Architecture Context
 
 Read `agent-docs/` BEFORE starting any task. These are gitignored AI context docs:
-- `agent-docs/architecture.md` — Full stack overview, security model, mcpo + MCP tool design
+- `agent-docs/architecture.md` — Full stack overview, security model, AI pipeline design
 - `agent-docs/networking.md` — Container communication map (what CAN and CANNOT talk)
 - `agent-docs/phases.md` — Deployment phases with per-phase container details and RAM budget
 - `agent-docs/containers.md` — Quick reference for every container: RAM, NVMe, networks, notes
@@ -65,15 +67,15 @@ Read `agent-docs/` BEFORE starting any task. These are gitignored AI context doc
 
 **Traffic flow**: iPhone/Laptop → Tailscale (WireGuard) → Caddy (reverse proxy) → Authelia (SSO + WebAuthn 2FA) → backend service. No ports are exposed to the public internet.
 
-**AI pipeline**: sophon + Open WebUI (legacy) → Bifrost gateway (aliases: "tool-caller" → Gemini 3.1 Flash-Lite, "smart" → Claude Haiku 4.5; Ollama dormant until 32GB upgrade; virtual-key inbound auth) + mcpo proxy (legacy, retiring with Open WebUI).
+**AI pipeline**: Sophon (Go backend) → Bifrost gateway (aliases: "tool-caller" → Gemini 3.1 Flash-Lite, "smart" → Claude Haiku 4.5; Ollama dormant until 32GB upgrade; virtual-key inbound auth). Tomoko (Svelte PWA) is the user-facing frontend, same-origin with Sophon's API behind Caddy.
 
 **Automation**: n8n reaches services through Caddy's authenticated API endpoints (never direct container access). Handles morning briefings, email monitoring, contact sync, task extraction.
 
-**Database**: PostgreSQL is shared by Authelia, Open WebUI, n8n, Vikunja, Nextcloud. Monica uses its own MariaDB sidecar.
+**Database**: PostgreSQL is shared by Authelia, n8n, Nextcloud, and Sophon.
 
 **Security**: Three independent layers — (1) Tailscale + Device Approval (Tailnet Lock OFF — see docs/REMOTE-ACCESS.md), (2) Authelia + mandatory WebAuthn FIDO2, (3) Application-level authorization. CrowdSec for intrusion detection. Docker Socket Proxy (Tecnativa) — no container ever mounts `/var/run/docker.sock` directly.
 
-**Port binding rule**: Only Caddy (`127.0.0.1:443`), AdGuard Home (`0.0.0.0:53`), and Tailscale (`network_mode: host`) bind to the host. All other containers have no `ports:` directive.
+**Port binding rule**: Only Caddy (`0.0.0.0:443` + `:80`), AdGuard Home (`0.0.0.0:53`), and Tailscale (`network_mode: host`) bind to the host. All other containers have no `ports:` directive. ⚠️ **Known deviation**: the intended posture was Caddy bound to `127.0.0.1:443` (reachable only via Tailscale's host interface), but it currently binds `0.0.0.0` — to revisit (restrict to `127.0.0.1` or formally accept).
 
 ## Docker Compose Conventions
 
@@ -93,13 +95,17 @@ Read `agent-docs/` BEFORE starting any task. These are gitignored AI context doc
 | proxy_net | no | Caddy + Tailscale ingress |
 | auth_net | yes | Caddy ↔ Authelia |
 | db_net | yes | PostgreSQL connections |
-| app_net | yes | Caddy ↔ app backends (Monica, Baïkal, Vikunja, Ntfy, Homepage, Nextcloud, HA) |
-| ai_net | no | LLM + MCP stack (needs outbound for Gemini/Anthropic APIs) |
+| app_net | yes | Caddy ↔ app backends (Baïkal, Ntfy, Homepage, Nextcloud, Sophon, Tomoko, red-coast UIs) |
+| ai_net | no | LLM stack — Sophon, Bifrost, dormant Ollama (needs outbound for Gemini/Anthropic APIs) |
 | automation_net | no | n8n (needs outbound for Gmail, Calendar, Canvas APIs) |
-| iot_net | yes | MQTT + Zigbee (fully isolated — no other container can reach Mosquitto) |
-| monitoring_net | no | Uptime Kuma, AdGuard, CrowdSec, NUT, Docker Socket Proxy |
+| media_net | no | red-coast outbound (torrent trackers + TMDb metadata) |
+| authelia_redis_net | yes | Authelia ↔ Redis session store |
+| monitoring_net | no | Uptime Kuma, Glances, AdGuard, CrowdSec, NUT, Docker Socket Proxy |
+| iot_net | yes | MQTT + Zigbee — defined for the planned `smarthome` stack (not yet deployed) |
 
 Networks with `internal: true` block all outbound internet. Containers on those networks cannot exfiltrate data.
+
+The `storage` stack defines one more internal sidecar, `nextcloud_redis_net` (Nextcloud ↔ Redis) — **11 networks total**.
 
 ## Scripts & Secrets
 
@@ -112,8 +118,8 @@ Networks with `internal: true` block all outbound internet. Containers on those 
 ## Security-Critical Version Pins
 
 - **n8n**: pin to v1.121.0+ (CVE-2026-21858, CVSS 10.0 — unauthenticated RCE)
-- **Open WebUI**: pin to v0.6.35+ (CVE-2025-64496 — code injection via malicious model servers)
-- mcpo: pin by image digest; MCP server npm packages pinned by version
+- **gluetun** (red-coast VPN): pin by image digest — it ships no semver releases, only `latest`/PR tags
+- All other images: pin by exact version tag (never `:latest`)
 
 ## Workflow
 
