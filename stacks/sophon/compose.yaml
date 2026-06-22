@@ -1,6 +1,6 @@
 # Universe 647 — Phase 4: Sophon (AI Brain)
-# sophon (backend) + bifrost (LLM gateway) + open-webui/mcpo (legacy, retiring)
-# + ollama (dormant). Requires: core stack running (PostgreSQL, Caddy, networks)
+# sophon (backend) + bifrost (LLM gateway) + ollama (dormant)
+# Requires: core stack running (PostgreSQL, Caddy, networks)
 
 services:
 
@@ -102,76 +102,6 @@ services:
       start_period: 15s
     mem_limit: 512m
     cpus: "1.0"
-    pids_limit: 128
-
-  # ==========================================================================
-  # Open WebUI — Legacy chat interface (retiring in the cleanup phase)
-  # SECURITY: Pin >= v0.6.35 (CVE-2025-64496 — code injection)
-  # Connects to Bifrost for model routing, PostgreSQL for data storage
-  # ==========================================================================
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:v0.6.35
-    container_name: open-webui
-    restart: unless-stopped
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/open_webui
-      OPENAI_API_BASE_URL: http://bifrost:8080/openai/v1
-      OPENAI_API_KEY: ${BIFROST_VK}
-      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
-      ENABLE_SIGNUP: "false"
-      DEFAULT_USER_ROLE: admin
-      ENABLE_OLLAMA_API: "false"
-    volumes:
-      - /mnt/data/open-webui:/app/backend/data
-    networks:
-      - ai_net
-      - app_net
-      - db_net
-    depends_on:
-      bifrost:
-        condition: service_healthy
-    mem_limit: 500m
-    cpus: "1.0"
-    pids_limit: 256
-
-  # ==========================================================================
-  # mcpo — MCP-to-OpenAPI proxy (custom image)
-  # Base: ghcr.io/open-webui/mcpo:git-788ff92 (v0.0.20)
-  # Adds: monica-mcp built from source (not on npm)
-  # Spawns MCP servers (postgres, monica, vikunja) as stdio child processes
-  # Config template with env var substitution via entrypoint.sh
-  # Multi-homed: ai_net (outbound APIs) + db_net (postgres-mcp direct access)
-  # ==========================================================================
-  mcpo:
-    build:
-      context: ./mcpo
-    container_name: mcpo
-    restart: unless-stopped
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    environment:
-      MCPO_API_KEY: ${MCPO_API_KEY}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      DOMAIN: ${DOMAIN}
-      MONICA_API_TOKEN: ${MONICA_API_TOKEN}
-      VIKUNJA_API_TOKEN: ${VIKUNJA_API_TOKEN}
-    volumes:
-      - ./mcpo/config.template.json:/app/config.template.json:ro
-    tmpfs:
-      - /tmp
-    networks:
-      - ai_net
-      - db_net
-    mem_limit: 256m
-    cpus: "0.5"
     pids_limit: 128
 
 volumes:
