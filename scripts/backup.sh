@@ -27,8 +27,15 @@ restic -r ${LOCAL_REPO} backup \
     /mnt/data/open-webui \
     /mnt/data/home-assistant \
     /mnt/data/nextcloud \
+    /mnt/data/jellyfin \
+    /mnt/data/jellyseerr \
+    /mnt/data/radarr \
+    /mnt/data/sonarr \
+    /mnt/data/prowlarr \
+    /mnt/data/qbittorrent \
     --exclude='*/cache/*' \
-    --exclude='*/logs/*'
+    --exclude='*/logs/*' \
+    --exclude='*/transcodes/*'
 
 # 4. Back up to cloud
 echo "Backing up to cloud..."
@@ -39,8 +46,15 @@ restic -r ${CLOUD_REPO} backup \
     /mnt/data/open-webui \
     /mnt/data/home-assistant \
     /mnt/data/nextcloud \
+    /mnt/data/jellyfin \
+    /mnt/data/jellyseerr \
+    /mnt/data/radarr \
+    /mnt/data/sonarr \
+    /mnt/data/prowlarr \
+    /mnt/data/qbittorrent \
     --exclude='*/cache/*' \
-    --exclude='*/logs/*'
+    --exclude='*/logs/*' \
+    --exclude='*/transcodes/*'
 
 # 5. Restore Nextcloud
 if docker ps --format '{{.Names}}' | grep -q nextcloud; then

@@ -20,9 +20,10 @@ TOMOKO   := stacks/tomoko/compose.yaml
 STORAGE  := stacks/storage/compose.yaml
 VOICE    := stacks/voice/compose.yaml
 SMARTHOME := stacks/smarthome/compose.yaml
+REDCOAST := stacks/red-coast/compose.yaml
 
-# All stacks in dependency order
-ALL_STACKS := $(CORE) $(DATA) $(SOPHON) $(TOMOKO) $(STORAGE) $(VOICE) $(SMARTHOME)
+# All stacks in dependency order (red-coast last — depends on core's networks)
+ALL_STACKS := $(CORE) $(DATA) $(SOPHON) $(TOMOKO) $(STORAGE) $(VOICE) $(SMARTHOME) $(REDCOAST)
 
 # Map friendly names to compose files (usage: make up STACK=core)
 STACK_FILE = $(if $(filter core,$(STACK)),$(CORE),\
@@ -32,7 +33,8 @@ STACK_FILE = $(if $(filter core,$(STACK)),$(CORE),\
              $(if $(filter storage,$(STACK)),$(STORAGE),\
              $(if $(filter voice,$(STACK)),$(VOICE),\
              $(if $(filter smarthome,$(STACK)),$(SMARTHOME),\
-             )))))))
+             $(if $(filter red-coast,$(STACK)),$(REDCOAST),\
+             ))))))))
 
 # ==================== Helpers ====================
 
@@ -69,7 +71,7 @@ endef
 help: ## Show this help message
 	@printf "$(BLUE)Universe 647 Management$(NC)\n"
 	@printf "=======================\n\n"
-	@printf "Usage: make <target> [STACK=core|data|sophon|storage|voice|smarthome]\n\n"
+	@printf "Usage: make <target> [STACK=core|data|sophon|storage|voice|smarthome|red-coast]\n\n"
 	@awk 'BEGIN {FS = ":.*##"; section=""} \
 		/^##@/ { section=substr($$0, 5); printf "\n$(BLUE)%s$(NC)\n", section; next } \
 		/^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 }' \
@@ -154,12 +156,12 @@ else
 endif
 
 .PHONY: up
-up: ## Start stacks (all, or STACK=core|data|sophon|storage|voice|smarthome)
+up: ## Start stacks (all, or STACK=core|data|sophon|storage|voice|smarthome|red-coast)
 	$(check_secrets)
 ifdef STACK
 	@if [ -z "$(strip $(STACK_FILE))" ]; then \
 		printf "$(RED)✗ Unknown stack: $(STACK)$(NC)\n" >&2; \
-		printf "$(YELLOW)  Valid: core, data, sophon, tomoko, storage, voice, smarthome$(NC)\n" >&2; \
+		printf "$(YELLOW)  Valid: core, data, sophon, tomoko, storage, voice, smarthome, red-coast$(NC)\n" >&2; \
 		exit 1; \
 	fi
 	@printf "$(YELLOW)Starting $(STACK) stack...$(NC)\n"
@@ -195,7 +197,7 @@ down: ## Stop stacks (STACK=name; stopping ALL asks for confirmation, FORCE=1 sk
 ifdef STACK
 	@if [ -z "$(strip $(STACK_FILE))" ]; then \
 		printf "$(RED)✗ Unknown stack: $(STACK)$(NC)\n" >&2; \
-		printf "$(YELLOW)  Valid: core, data, sophon, tomoko, storage, voice, smarthome$(NC)\n" >&2; \
+		printf "$(YELLOW)  Valid: core, data, sophon, tomoko, storage, voice, smarthome, red-coast$(NC)\n" >&2; \
 		printf "$(YELLOW)  (note: the variable is STACK=, case matters)$(NC)\n" >&2; \
 		exit 1; \
 	fi
