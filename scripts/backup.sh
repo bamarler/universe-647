@@ -22,9 +22,6 @@ fi
 echo "Backing up to local repo..."
 restic -r ${LOCAL_REPO} backup \
     ${BACKUP_STAGING} \
-    /mnt/data/monica \
-    /mnt/data/vikunja \
-    /mnt/data/open-webui \
     /mnt/data/home-assistant \
     /mnt/data/nextcloud \
     /mnt/data/jellyfin \
@@ -41,9 +38,6 @@ restic -r ${LOCAL_REPO} backup \
 echo "Backing up to cloud..."
 restic -r ${CLOUD_REPO} backup \
     ${BACKUP_STAGING} \
-    /mnt/data/monica \
-    /mnt/data/vikunja \
-    /mnt/data/open-webui \
     /mnt/data/home-assistant \
     /mnt/data/nextcloud \
     /mnt/data/jellyfin \

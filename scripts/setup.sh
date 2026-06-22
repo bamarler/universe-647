@@ -34,7 +34,7 @@ echo "   UUID=your-uuid /mnt/data ext4 defaults 0 2"
 sudo mkdir -p /mnt/data
 
 # 9. Create data directories
-sudo mkdir -p /mnt/data/{postgres,ollama/models,nextcloud,monica,open-webui,vikunja,home-assistant,restic-repo}
+sudo mkdir -p /mnt/data/{postgres,ollama/models,nextcloud,home-assistant,restic-repo}
 sudo mkdir -p /srv/u647/{tailscale,baikal,uptime-kuma,adguard,ntfy}
 sudo chown -R $USER:$USER /mnt/data /srv/u647
 
